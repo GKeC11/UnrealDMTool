@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{9955A87E-45B8-F73B-B4D7-6C8D5D030EFD}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "DMTool",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}
