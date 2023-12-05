@@ -1,0 +1,8 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.RuntimeDebug.cpp.obj": [
+			"RuntimeDebug.cpp.obj"
+		]
+	}
+}

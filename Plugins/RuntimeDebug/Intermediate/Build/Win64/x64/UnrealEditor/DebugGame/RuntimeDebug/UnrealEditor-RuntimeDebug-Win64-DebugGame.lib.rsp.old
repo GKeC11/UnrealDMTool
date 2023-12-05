@@ -1,0 +1,12 @@
+/NOLOGO
+/errorReport:prompt
+/MACHINE:x64
+/SUBSYSTEM:WINDOWS
+/DEF
+/NAME:"UnrealEditor-RuntimeDebug-Win64-DebugGame.dll"
+/IGNORE:4221
+/NODEFAULTLIB
+"..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Engine\SharedPCH.Engine.Cpp20.h.obj"
+"D:\UnrealProjects\DMTool\Plugins\RuntimeDebug\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\RuntimeDebug\Module.RuntimeDebug.cpp.obj"
+"..\Intermediate\Build\Win64\x64\UnrealEditor\Development\Default.rc2.res"
+/OUT:"D:\UnrealProjects\DMTool\Plugins\RuntimeDebug\Intermediate\Build\Win64\x64\UnrealEditor\DebugGame\RuntimeDebug\UnrealEditor-RuntimeDebug-Win64-DebugGame.lib"

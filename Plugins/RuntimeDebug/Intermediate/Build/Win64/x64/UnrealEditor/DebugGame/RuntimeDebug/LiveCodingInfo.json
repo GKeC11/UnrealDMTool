@@ -1,0 +1,13 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.RuntimeDebug.cpp.obj": [
+			"RuntimeDebug.init.gen.cpp.obj",
+			"RuntimeDebugGameInstanceSubSystem.gen.cpp.obj",
+			"RuntimeDebug.cpp.obj",
+			"RuntimeDebugConsoleEntryData.cpp.obj",
+			"RuntimeDebugGameInstanceSubSystem.cpp.obj",
+			"RuntimeDebugOutputDevice.cpp.obj"
+		]
+	}
+}
