@@ -1,0 +1,10 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.EditorStandaloneWindowSample.cpp.obj": [
+			"EditorStandaloneWindowSample.cpp.obj",
+			"EditorStandaloneWindowSampleCommands.cpp.obj",
+			"EditorStandaloneWindowSampleStyle.cpp.obj"
+		]
+	}
+}

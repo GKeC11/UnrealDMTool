@@ -1,0 +1,8 @@
+{
+	"RemapUnityFiles": 
+	{
+		"Module.SlateLab.cpp.obj": [
+			"SlateLab.cpp.obj"
+		]
+	}
+}
