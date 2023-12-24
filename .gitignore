@@ -4,3 +4,7 @@
 /DerivedDataCache
 /Intermediate
 /Saved
+/Plugins/**/Binaries
+/Plugins/**/DerivedDataCache
+/Plugins/**/Intermediate
+/Plugins/**/Saved
