@@ -2,17 +2,110 @@
 
 #include "SlateLab.h"
 
+#include "SlateLabCommands.h"
+#include "ToolMenus.h"
+#include "Widgets/SViewport.h"
+
 #define LOCTEXT_NAMESPACE "FSlateLabModule"
 
 void FSlateLabModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	RegisterStyle();
+	
+	RegisterCommands();
+	
+	RegisterMenus();
+
+	RegisterTabs();
 }
 
 void FSlateLabModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+	UnregisterStyle();
+	
+	UnregisterCommands();
+
+	UnregisterMenus();
+
+	UnregisterTabs();
+}
+
+void FSlateLabModule::RegisterStyle()
+{
+	FSlateLabStyle::Initialize();
+
+	FSlateLabStyle::ReloadTextures();
+}
+
+void FSlateLabModule::UnregisterStyle()
+{
+	FSlateLabStyle::Shutdown();
+}
+
+void FSlateLabModule::RegisterCommands()
+{
+	FSlateLabCommands::Register();
+	
+	CommandList = MakeShareable(new FUICommandList());
+	
+	CommandList->MapAction(FSlateLabCommands::Get().OpenSlateLab,
+		FExecuteAction::CreateRaw(this, &FSlateLabModule::OpenSlateLabButtonClicked),
+		FCanExecuteAction());
+}
+
+void FSlateLabModule::UnregisterCommands()
+{
+	FSlateLabCommands::Get().Unregister();
+}
+
+void FSlateLabModule::RegisterMenus()
+{
+	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(
+		this, &FSlateLabModule::OnRegisterMenus));
+}
+
+void FSlateLabModule::OnRegisterMenus()
+{
+	FToolMenuOwnerScoped OwnerScoped(this);
+	
+	UToolMenu* UserToolBar = UToolMenus::Get()->ExtendMenu("LevelEditor.LevelEditorToolBar.User");
+	FToolMenuSection& SlateLabSection =  UserToolBar->AddSection("SlateLab");
+	FToolMenuEntry& SlateLabEntry = SlateLabSection.AddEntry(FToolMenuEntry::InitToolBarButton(
+		FSlateLabCommands::Get().OpenSlateLab));
+	SlateLabEntry.SetCommandList(CommandList);
+}
+
+void FSlateLabModule::UnregisterMenus()
+{
+	UToolMenus::UnRegisterStartupCallback(this);
+	UToolMenus::UnregisterOwner(this);
+}
+
+static const FName ViewportTabName = "SlateLapViewportTab";
+
+void FSlateLabModule::RegisterTabs()
+{
+	FGlobalTabmanager::Get()->RegisterTabSpawner(ViewportTabName, FOnSpawnTab::CreateRaw(
+		this, &FSlateLabModule::OnSpawnViewportTab));
+}
+
+void FSlateLabModule::UnregisterTabs()
+{
+	FGlobalTabmanager::Get()->UnregisterTabSpawner(ViewportTabName);
+}
+
+TSharedRef<SDockTab> FSlateLabModule::OnSpawnViewportTab(const FSpawnTabArgs& Args)
+{
+	return SNew(SDockTab)
+	.TabRole(NomadTab)
+	[
+		SNew(SViewport)
+	];
+}
+
+void FSlateLabModule::OpenSlateLabButtonClicked()
+{
+	FGlobalTabmanager::Get()->TryInvokeTab(ViewportTabName);
 }
 
 #undef LOCTEXT_NAMESPACE

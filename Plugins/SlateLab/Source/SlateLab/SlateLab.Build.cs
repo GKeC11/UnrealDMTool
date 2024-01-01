@@ -38,6 +38,8 @@ public class SlateLab : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"Projects",
+				"ToolMenus",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);
