@@ -113,6 +113,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpicGames.Tracing", "..\..\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EpicGames.UHT", "..\..\Github\UnrealEngine\Engine\Source\Programs\Shared\EpicGames.UHT\EpicGames.UHT.csproj", "{DF7A2CE1-31BF-3EAC-90F9-C9D5B923E748}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketplaceRules", "..\..\Github\UnrealEngine\Engine\Intermediate\Build\BuildRulesProjects\MarketplaceRules\MarketplaceRules.csproj", "{B58A506C-6DC8-3CAD-936D-7666BB3872F2}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UE5ProgramRules", "..\..\Github\UnrealEngine\Engine\Intermediate\Build\BuildRulesProjects\UE5ProgramRules\UE5ProgramRules.csproj", "{F8D87029-EAD4-3427-932F-1354A8F5C724}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UE5Rules", "..\..\Github\UnrealEngine\Engine\Intermediate\Build\BuildRulesProjects\UE5Rules\UE5Rules.csproj", "{E6019710-21C2-3ABA-A3F2-733DE7651B4C}"
@@ -1761,6 +1763,42 @@ Global
 		{DF7A2CE1-31BF-3EAC-90F9-C9D5B923E748}.Test Server|Win64.Build.0 = Development|Any CPU
 		{DF7A2CE1-31BF-3EAC-90F9-C9D5B923E748}.Test|Win64.ActiveCfg = Development|Any CPU
 		{DF7A2CE1-31BF-3EAC-90F9-C9D5B923E748}.Test|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Client|Win64.ActiveCfg = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Client|Win64.Build.0 = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Editor|Win64.ActiveCfg = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Editor|Win64.Build.0 = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Server|Win64.ActiveCfg = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug Server|Win64.Build.0 = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Client|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Client|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Editor|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Editor|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Server|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame Server|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.DebugGame|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug|Win64.ActiveCfg = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Debug|Win64.Build.0 = Debug|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Client|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Client|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Editor|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Editor|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Server|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development Server|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Development|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping Client|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping Client|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping Server|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping Server|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Shipping|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test Client|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test Client|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test Server|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test Server|Win64.Build.0 = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test|Win64.ActiveCfg = Development|Any CPU
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2}.Test|Win64.Build.0 = Development|Any CPU
 		{F8D87029-EAD4-3427-932F-1354A8F5C724}.Debug Client|Win64.ActiveCfg = Debug|Any CPU
 		{F8D87029-EAD4-3427-932F-1354A8F5C724}.Debug Client|Win64.Build.0 = Debug|Any CPU
 		{F8D87029-EAD4-3427-932F-1354A8F5C724}.Debug Editor|Win64.ActiveCfg = Debug|Any CPU
@@ -1922,6 +1960,7 @@ Global
 		{58DCC557-134F-33AB-AAA2-7912B4FC710F} = {57713676-9DBE-331C-AD10-26632AC9EE0C}
 		{6E65DAB4-4ADC-30D8-A36D-232870F70B5C} = {57713676-9DBE-331C-AD10-26632AC9EE0C}
 		{DF7A2CE1-31BF-3EAC-90F9-C9D5B923E748} = {57713676-9DBE-331C-AD10-26632AC9EE0C}
+		{B58A506C-6DC8-3CAD-936D-7666BB3872F2} = {C2F57ECE-B26F-39D8-BDA7-C1D40BD8F180}
 		{F8D87029-EAD4-3427-932F-1354A8F5C724} = {C2F57ECE-B26F-39D8-BDA7-C1D40BD8F180}
 		{E6019710-21C2-3ABA-A3F2-733DE7651B4C} = {C2F57ECE-B26F-39D8-BDA7-C1D40BD8F180}
 		{569ABE99-49D8-3489-B77A-DAA1218EE462} = {C2F57ECE-B26F-39D8-BDA7-C1D40BD8F180}
