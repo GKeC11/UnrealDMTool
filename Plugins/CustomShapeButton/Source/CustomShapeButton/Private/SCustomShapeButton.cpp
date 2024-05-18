@@ -80,6 +80,8 @@ FReply SCustomShapeButton::OnMouseMove(const FGeometry& MyGeometry, const FPoint
 {
 	UpdateMouseData(MyGeometry, MouseEvent);
 
+	UE_LOG(LogTemp, Log, TEXT("Custom Shape Button Move"))
+	
 	if (!bCanHover
 		&& IsAlphaPixelHovered())
 	{
