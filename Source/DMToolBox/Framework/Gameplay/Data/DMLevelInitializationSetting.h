@@ -2,7 +2,7 @@
 
 #include "CommonActivatableWidget.h"
 #include "GameplayTagContainer.h"
-#include "DMToolBox/Framework/Gameplay/DMCameraActor.h"
+#include "DMToolBox/Framework/Camera/DMCameraActor.h"
 
 #include "DMLevelInitializationSetting.generated.h"
 
@@ -26,7 +26,4 @@ class UDMLevelInitializationSetting : public UPrimaryDataAsset
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	TArray<FLevelInitializationSetting_WidgetConfig> WidgetConfigs;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
-	TSubclassOf<ADMCameraActor> CameraActorClass;
 };
