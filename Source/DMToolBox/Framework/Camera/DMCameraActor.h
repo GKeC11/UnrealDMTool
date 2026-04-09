@@ -7,6 +7,7 @@
 #include "DMCameraActor.generated.h"
 
 class APlayerController;
+class USceneComponent;
 
 UCLASS()
 class DMTOOLBOX_API ADMCameraActor : public AActor
@@ -30,10 +31,16 @@ protected:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	TObjectPtr<USceneComponent> RootScene;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	TObjectPtr<USpringArmComponent> SpringArm;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	TObjectPtr<UCameraComponent> Camera;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	bool bFollowPlayerControllerRotation = false;
 
 	UPROPERTY(Transient)
 	TObjectPtr<APlayerController> PlayerController;

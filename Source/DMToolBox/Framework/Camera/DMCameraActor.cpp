@@ -1,13 +1,17 @@
 ﻿#include "DMCameraActor.h"
 
+#include "Components/SceneComponent.h"
 #include "GameFramework/PlayerController.h"
 
 ADMCameraActor::ADMCameraActor(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	RootScene = CreateDefaultSubobject<USceneComponent>(TEXT("RootScene"));
+	SetRootComponent(RootScene);
+
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	SetRootComponent(SpringArm);
+	SpringArm->SetupAttachment(RootScene);
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(SpringArm);
@@ -25,6 +29,11 @@ void ADMCameraActor::TickActor(float DeltaTime, enum ELevelTick TickType, FActor
 	{
 		SetActorLocation(ActorToFollow->GetActorLocation());
 	}
+
+	if (bFollowPlayerControllerRotation && IsValid(PlayerController))
+	{
+		SetActorRotation(PlayerController->GetControlRotation());
+	}
 }
 
 bool ADMCameraActor::InitializeFromPlayerController(APlayerController* InPlayerController)
@@ -36,6 +45,10 @@ bool ADMCameraActor::InitializeFromPlayerController(APlayerController* InPlayerC
 	}
 
 	SetActorToFollow(PlayerController->GetPawn());
+	if (bFollowPlayerControllerRotation)
+	{
+		SetActorRotation(PlayerController->GetControlRotation());
+	}
 	PlayerController->SetViewTarget(this);
 
 	if (APlayerCameraManager* PlayerCameraManager = PlayerController->PlayerCameraManager)
@@ -53,5 +66,10 @@ void ADMCameraActor::SetActorToFollow(AActor* InActorToFollow)
 	if (IsValid(ActorToFollow))
 	{
 		SetActorLocation(ActorToFollow->GetActorLocation());
+	}
+
+	if (bFollowPlayerControllerRotation && IsValid(PlayerController))
+	{
+		SetActorRotation(PlayerController->GetControlRotation());
 	}
 }
