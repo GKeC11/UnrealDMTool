@@ -36,3 +36,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layer")
 	FGameplayTag LayerTag;
 };
+
+UCLASS()
+class UDMActivatableWidgetQueue : public UCommonActivatableWidgetQueue, public IDMActivatableWidgetContainer
+{
+	GENERATED_BODY()
+
+public:
+	virtual FGameplayTag GetLayerTag() override { return LayerTag; }
+
+	virtual UCommonActivatableWidgetContainerBase* GetContainer() override { return this; }
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layer")
+	FGameplayTag LayerTag;
+};
+

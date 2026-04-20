@@ -8,26 +8,10 @@ public class DMToolBox : ModuleRules
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicIncludePaths.AddRange(
-			new string[]
-			{
-				
-			}
-		);
-
-
-		PrivateIncludePaths.AddRange(
-			new string[]
-			{
-				
-			}
-		);
-
-
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
-				
+				"CommonUI",
 			}
 		);
 
@@ -48,14 +32,6 @@ public class DMToolBox : ModuleRules
 				"Puerts",
 				"JsEnv",
 				"GameplayMessageRuntime",
-			}
-		);
-
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[]
-			{
-				
 			}
 		);
 	}

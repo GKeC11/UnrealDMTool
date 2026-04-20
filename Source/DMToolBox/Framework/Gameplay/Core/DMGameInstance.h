@@ -3,7 +3,7 @@
 #include "DMGameInstance.generated.h"
 
 UCLASS()
-class UDMGameInstance : public UGameInstance
+class DMTOOLBOX_API UDMGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 	

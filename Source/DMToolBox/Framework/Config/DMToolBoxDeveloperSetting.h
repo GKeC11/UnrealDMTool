@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "DMToolBox/Framework/UI/DMUIScreen.h"
+#include "Engine/DataTable.h"
 
 #include "DMToolBoxDeveloperSetting.generated.h"
 
@@ -12,4 +13,7 @@ class UDMToolBoxDeveloperSetting : public UDeveloperSettings
 public:
 	UPROPERTY(Config, EditAnywhere)
 	TSoftClassPtr<UDMUIScreen> DefaultUIScreenClass;
+
+	UPROPERTY(Config, EditAnywhere)
+	TSoftObjectPtr<UDataTable> WidgetConfigDataTable;
 };
