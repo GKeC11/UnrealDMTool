@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "GameplayTagContainer.h"
 #include "Widgets/CommonActivatableWidgetContainer.h"
@@ -14,13 +14,12 @@ class UDMActivatableWidgetContainer : public UInterface
 class IDMActivatableWidgetContainer
 {
 	GENERATED_BODY()
-	
+
 public:
 	virtual FGameplayTag GetLayerTag() = 0;
 
 	virtual UCommonActivatableWidgetContainerBase* GetContainer() = 0;
 };
-
 
 UCLASS()
 class UDMActivatableWidgetStack : public UCommonActivatableWidgetStack, public IDMActivatableWidgetContainer
@@ -28,6 +27,8 @@ class UDMActivatableWidgetStack : public UCommonActivatableWidgetStack, public I
 	GENERATED_BODY()
 
 public:
+	virtual void OnWidgetAddedToList(UCommonActivatableWidget& AddedWidget) override;
+
 	virtual FGameplayTag GetLayerTag() override { return LayerTag; }
 
 	virtual UCommonActivatableWidgetContainerBase* GetContainer() override { return this; }
@@ -43,6 +44,8 @@ class UDMActivatableWidgetQueue : public UCommonActivatableWidgetQueue, public I
 	GENERATED_BODY()
 
 public:
+	virtual void OnWidgetAddedToList(UCommonActivatableWidget& AddedWidget) override;
+
 	virtual FGameplayTag GetLayerTag() override { return LayerTag; }
 
 	virtual UCommonActivatableWidgetContainerBase* GetContainer() override { return this; }
@@ -51,4 +54,3 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Layer")
 	FGameplayTag LayerTag;
 };
-

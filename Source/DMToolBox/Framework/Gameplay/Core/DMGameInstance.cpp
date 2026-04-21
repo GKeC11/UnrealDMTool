@@ -1,8 +1,21 @@
-﻿#include "DMGameInstance.h"
+#include "DMGameInstance.h"
 
-void UDMGameInstance::Init()
+#include "UObject/Class.h"
+
+bool UDMGameInstance::AddPuertsLoadedClassReference(UClass* InClass)
 {
-	Super::Init();
+	if (!IsValid(InClass))
+	{
+		return false;
+	}
+
+	PuertsLoadedClassReferences.AddUnique(InClass);
+	return true;
+}
+
+void UDMGameInstance::OnStart()
+{
+	Super::OnStart();
 
 	TS_Init();
 }

@@ -22,6 +22,7 @@ public class DMToolBox : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
+				"AssetRegistry",
 				"Slate",
 				"SlateCore",
 				"DeveloperSettings",
