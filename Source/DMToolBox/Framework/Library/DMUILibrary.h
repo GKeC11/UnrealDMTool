@@ -16,7 +16,10 @@ public:
 	static bool CreateWidgetByTagToLayer(UObject* WorldContextObject, FGameplayTag InWidgetTag, FGameplayTag InLayerTag);
 
 	UFUNCTION(BlueprintCallable, Category = "DMToolBox|UI", meta = (WorldContext = "WorldContextObject"))
-	static bool RemoveWidgetByTag(UObject* WorldContextObject, FGameplayTag InWidgetTag);
+	static bool RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonActivatableWidget* InWidget, FGameplayTag InLayerTag);
+
+	UFUNCTION(BlueprintCallable, Category = "DMToolBox|UI", meta = (WorldContext = "WorldContextObject"))
+	static bool RemoveWidgetByTagFromLayer(UObject* WorldContextObject, FGameplayTag InWidgetTag, FGameplayTag InLayerTag);
 
 	static void CreateWidgetToLayer(APlayerController* InPlayerController, TSubclassOf<UCommonActivatableWidget> InWidgetClass, FGameplayTag InLayerTag);
 };

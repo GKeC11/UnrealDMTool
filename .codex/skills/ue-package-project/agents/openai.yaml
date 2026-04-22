@@ -1,0 +1,4 @@
+interface:
+  display_name: "UE Package Project"
+  short_description: "Generate or refresh the project's packaging ps1 and bat entry scripts."
+  default_prompt: "Use $ue-package-project to generate or update this project's packaging scripts under Scripts/."

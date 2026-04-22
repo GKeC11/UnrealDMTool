@@ -90,4 +90,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	static void LogAllMixinClassesAndMethods();
+
+	UFUNCTION(BlueprintPure, Category = "DMToolBox|Puerts", meta = (WorldContext = "WorldContextObject"))
+	static FString GetExecutionContextLabel(const UObject* WorldContextObject);
 };

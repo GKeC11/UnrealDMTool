@@ -13,5 +13,5 @@ struct FDMWidgetConfig : public FTableRowBase
 	FGameplayTag WidgetTag;
 	
 	UPROPERTY(EditAnywhere)
-	TSubclassOf<UUserWidget> WidgetClass;
+	TSoftClassPtr<UUserWidget> WidgetClass;
 };

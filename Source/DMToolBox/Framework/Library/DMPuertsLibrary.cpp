@@ -2,7 +2,8 @@
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "DMToolBox/Framework/Gameplay/Core/DMGameInstance.h"
-#include "Engine/Engine.h"
+#include "DMSystemLibrary.h"
+#include "Engine/World.h"
 #include "Misc/PackageName.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/Class.h"
@@ -12,44 +13,6 @@
 namespace DMPuertsLibraryPrivate
 {
 	static const FString MixinMethodSuffix = TEXT("__puerts_mixin__");
-
-	static UDMGameInstance* ResolveDMGameInstance()
-	{
-		if (!GEngine)
-		{
-			return nullptr;
-		}
-
-		for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
-		{
-			UWorld* World = WorldContext.World();
-			if (!IsValid(World) || !World->IsGameWorld())
-			{
-				continue;
-			}
-
-			if (UDMGameInstance* GameInstance = Cast<UDMGameInstance>(World->GetGameInstance()))
-			{
-				return GameInstance;
-			}
-		}
-
-		for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
-		{
-			UWorld* World = WorldContext.World();
-			if (!IsValid(World))
-			{
-				continue;
-			}
-
-			if (UDMGameInstance* GameInstance = Cast<UDMGameInstance>(World->GetGameInstance()))
-			{
-				return GameInstance;
-			}
-		}
-
-		return nullptr;
-	}
 }
 
 void UDMPuertsLibrary::RegisterConsoleCommand(const FString& CommandName, const FString& CommandDesc, const FConsoleCommandDynamicDelegate& CommandDelegate)
@@ -71,7 +34,7 @@ bool UDMPuertsLibrary::KeepLoadedClassReferenced(UClass* InClass)
 		return false;
 	}
 
-	if (UDMGameInstance* GameInstance = DMPuertsLibraryPrivate::ResolveDMGameInstance())
+	if (UDMGameInstance* GameInstance = UDMSystemLibrary::ResolveDMGameInstance())
 	{
 		return GameInstance->AddPuertsLoadedClassReference(InClass);
 	}
@@ -270,4 +233,29 @@ void UDMPuertsLibrary::LogAllMixinClassesAndMethods()
 	UE_LOG(LogTemp, Log, TEXT("[DMPuertsLibrary] End LogAllMixinClassesAndMethods ClassCount=%d MethodCount=%d"),
 		MixinClassCount,
 		MixinMethodCount);
+}
+
+FString UDMPuertsLibrary::GetExecutionContextLabel(const UObject* WorldContextObject)
+{
+	const UWorld* World = UDMSystemLibrary::ResolveWorldFromContext(WorldContextObject);
+	if (!IsValid(World))
+	{
+		return TEXT("[Unknown]");
+	}
+
+	switch (World->GetNetMode())
+	{
+	case NM_Standalone:
+		return TEXT("[Standalone]");
+
+	case NM_DedicatedServer:
+	case NM_ListenServer:
+		return TEXT("[Server]");
+
+	case NM_Client:
+		return FString::Printf(TEXT("[Client %d]"), UDMSystemLibrary::ResolveClientIndex(World));
+
+	default:
+		return TEXT("[Unknown]");
+	}
 }

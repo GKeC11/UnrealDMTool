@@ -1,0 +1,4 @@
+interface:
+  display_name: "UE C++"
+  short_description: "Implement Unreal C++ with decoupled architecture"
+  default_prompt: "Use $ue-cpp to implement or refactor Unreal Engine C++ code for this project."
