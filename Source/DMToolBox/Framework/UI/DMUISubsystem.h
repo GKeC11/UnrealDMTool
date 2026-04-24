@@ -11,8 +11,7 @@ class UDMUISubsystem : public UGameInstanceSubsystem
 
 public:
 	UDMUIScreen* GetCurrentScreen() { return CurrentScreen; }
-	
-protected:
+
 	// Override
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 

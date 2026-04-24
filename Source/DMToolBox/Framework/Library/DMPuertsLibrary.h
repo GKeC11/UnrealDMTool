@@ -93,4 +93,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "DMToolBox|Puerts", meta = (WorldContext = "WorldContextObject"))
 	static FString GetExecutionContextLabel(const UObject* WorldContextObject);
+
+	UFUNCTION(BlueprintPure, Category = "DMToolBox|Puerts")
+	static bool IsPackagedBuild();
 };

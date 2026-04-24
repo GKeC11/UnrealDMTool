@@ -1,6 +1,7 @@
 #include "DMPuertsLibrary.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "DMToolBox/Framework/Common/DMMacros.h"
 #include "DMToolBox/Framework/Gameplay/Core/DMGameInstance.h"
 #include "DMSystemLibrary.h"
 #include "Engine/World.h"
@@ -39,7 +40,7 @@ bool UDMPuertsLibrary::KeepLoadedClassReferenced(UClass* InClass)
 		return GameInstance->AddPuertsLoadedClassReference(InClass);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[DMPuertsLibrary] Failed to keep loaded class referenced because no UDMGameInstance was available. Class=%s"),
+	DM_LOG(nullptr, LogTemp, Warning, TEXT("Failed to keep loaded class referenced because no UDMGameInstance was available. Class=%s"),
 		*InClass->GetPathName());
 	return false;
 }
@@ -177,7 +178,7 @@ void UDMPuertsLibrary::LogAllMixinClassesAndMethods()
 	int32 MixinClassCount = 0;
 	int32 MixinMethodCount = 0;
 
-	UE_LOG(LogTemp, Log, TEXT("[DMPuertsLibrary] Begin LogAllMixinClassesAndMethods"));
+	DM_LOG(nullptr, LogTemp, Log, TEXT("Begin LogAllMixinClassesAndMethods"));
 
 	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
 	{
@@ -219,18 +220,18 @@ void UDMPuertsLibrary::LogAllMixinClassesAndMethods()
 		++MixinClassCount;
 		MixinMethodCount += MixinMethods.Num();
 
-		UE_LOG(LogTemp, Log, TEXT("[DMPuertsLibrary] MixinClass=%s, Path=%s, MethodCount=%d"),
+		DM_LOG(nullptr, LogTemp, Log, TEXT("MixinClass=%s, Path=%s, MethodCount=%d"),
 			*Class->GetName(),
 			*Class->GetPathName(),
 			MixinMethods.Num());
 
 		for (const FString& MixinMethod : MixinMethods)
 		{
-			UE_LOG(LogTemp, Log, TEXT("[DMPuertsLibrary]   MixinMethod=%s"), *MixinMethod);
+			DM_LOG(nullptr, LogTemp, Log, TEXT("MixinMethod=%s"), *MixinMethod);
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[DMPuertsLibrary] End LogAllMixinClassesAndMethods ClassCount=%d MethodCount=%d"),
+	DM_LOG(nullptr, LogTemp, Log, TEXT("End LogAllMixinClassesAndMethods ClassCount=%d MethodCount=%d"),
 		MixinClassCount,
 		MixinMethodCount);
 }
@@ -258,4 +259,13 @@ FString UDMPuertsLibrary::GetExecutionContextLabel(const UObject* WorldContextOb
 	default:
 		return TEXT("[Unknown]");
 	}
+}
+
+bool UDMPuertsLibrary::IsPackagedBuild()
+{
+#if WITH_EDITOR
+	return false;
+#else
+	return true;
+#endif
 }

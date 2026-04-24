@@ -1,4 +1,5 @@
-﻿#include "DMUILibrary.h"
+#include "DMUILibrary.h"
+#include "DMToolBox/Framework/Common/DMMacros.h"
 #include "DMToolBox/Framework/Config/DMToolBoxDeveloperSetting.h"
 #include "DMToolBox/Framework/UI/DMUIScreen.h"
 #include "DMToolBox/Framework/UI/DMWidgetConfig.h"
@@ -11,14 +12,14 @@ namespace DMUILibraryPrivate
 	{
 		if (!InWidgetTag.IsValid())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveWidgetClassByTag failed: WidgetTag is invalid."));
+			DM_LOG(nullptr, LogTemp, Warning, TEXT("ResolveWidgetClassByTag failed: WidgetTag is invalid."));
 			return nullptr;
 		}
 
 		const UDMToolBoxDeveloperSetting* DMToolBoxDeveloperSettings = GetDefault<UDMToolBoxDeveloperSetting>();
 		if (!DMToolBoxDeveloperSettings)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveWidgetClassByTag failed: DMToolBoxDeveloperSettings is null. WidgetTag=%s"),
+			DM_LOG(nullptr, LogTemp, Warning, TEXT("ResolveWidgetClassByTag failed: DMToolBoxDeveloperSettings is null. WidgetTag=%s"),
 				*InWidgetTag.ToString());
 			return nullptr;
 		}
@@ -26,7 +27,7 @@ namespace DMUILibraryPrivate
 		UDataTable* WidgetDataTable = DMToolBoxDeveloperSettings->WidgetConfigDataTable.LoadSynchronous();
 		if (!WidgetDataTable)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveWidgetClassByTag failed: WidgetConfigDataTable load failed. WidgetTag=%s"),
+			DM_LOG(nullptr, LogTemp, Warning, TEXT("ResolveWidgetClassByTag failed: WidgetConfigDataTable load failed. WidgetTag=%s"),
 				*InWidgetTag.ToString());
 			return nullptr;
 		}
@@ -43,19 +44,19 @@ namespace DMUILibraryPrivate
 			UClass* WidgetClass = Row->WidgetClass.LoadSynchronous();
 			if (WidgetClass && WidgetClass->IsChildOf(UCommonActivatableWidget::StaticClass()))
 			{
-				UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] ResolveWidgetClassByTag success: WidgetTag=%s, WidgetClass=%s"),
+				DM_LOG(nullptr, LogTemp, Log, TEXT("ResolveWidgetClassByTag success: WidgetTag=%s, WidgetClass=%s"),
 					*InWidgetTag.ToString(),
 					*WidgetClass->GetName());
 				return WidgetClass;
 			}
 
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveWidgetClassByTag failed: WidgetClass is invalid or not a UCommonActivatableWidget. WidgetTag=%s, RowName=%s"),
+			DM_LOG(nullptr, LogTemp, Warning, TEXT("ResolveWidgetClassByTag failed: WidgetClass is invalid or not a UCommonActivatableWidget. WidgetTag=%s, RowName=%s"),
 				*InWidgetTag.ToString(),
 				*RowPair.Key.ToString());
 			return nullptr;
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveWidgetClassByTag failed: No row matched WidgetTag=%s"),
+		DM_LOG(nullptr, LogTemp, Warning, TEXT("ResolveWidgetClassByTag failed: No row matched WidgetTag=%s"),
 			*InWidgetTag.ToString());
 		return nullptr;
 	}
@@ -64,7 +65,7 @@ namespace DMUILibraryPrivate
 	{
 		if (!IsValid(PlayerController) || !PlayerController->GetLocalPlayer())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveLayerForLocalPlayer failed: PlayerController or LocalPlayer is invalid. PC=%s, LayerTag=%s"),
+			DM_LOG(PlayerController, LogTemp, Warning, TEXT("ResolveLayerForLocalPlayer failed: PlayerController or LocalPlayer is invalid. PC=%s, LayerTag=%s"),
 				*GetNameSafe(PlayerController),
 				*InLayerTag.ToString());
 			return nullptr;
@@ -73,7 +74,7 @@ namespace DMUILibraryPrivate
 		UDMUIScreen* Screen = UDMUIScreen::GetUIScreen(PlayerController);
 		if (!Screen)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveLayerForLocalPlayer failed: Screen is invalid. PC=%s, LayerTag=%s"),
+			DM_LOG(PlayerController, LogTemp, Warning, TEXT("ResolveLayerForLocalPlayer failed: Screen is invalid. PC=%s, LayerTag=%s"),
 				*GetNameSafe(PlayerController),
 				*InLayerTag.ToString());
 			return nullptr;
@@ -82,7 +83,7 @@ namespace DMUILibraryPrivate
 		UDMUILayout* Layout = Screen->GetLayoutFromLocalPlayer(PlayerController->GetLocalPlayer());
 		if (!Layout)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] ResolveLayerForLocalPlayer failed: Layout is invalid. PC=%s, LayerTag=%s"),
+			DM_LOG(PlayerController, LogTemp, Warning, TEXT("ResolveLayerForLocalPlayer failed: Layout is invalid. PC=%s, LayerTag=%s"),
 				*GetNameSafe(PlayerController),
 				*InLayerTag.ToString());
 			return nullptr;
@@ -96,7 +97,7 @@ void UDMUILibrary::CreateWidgetToLayer(APlayerController* InPlayerController, TS
 {
 	if (!IsValid(InPlayerController) || !InWidgetClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetToLayer skipped: Invalid PlayerController or WidgetClass. LayerTag=%s"),
+		DM_LOG(InPlayerController, LogTemp, Warning, TEXT("CreateWidgetToLayer skipped: Invalid PlayerController or WidgetClass. LayerTag=%s"),
 			*InLayerTag.ToString());
 		return;
 	}
@@ -104,7 +105,7 @@ void UDMUILibrary::CreateWidgetToLayer(APlayerController* InPlayerController, TS
 	UDMUIScreen* Screen = UDMUIScreen::GetUIScreen(InPlayerController);
 	if (!Screen || !InPlayerController->GetLocalPlayer())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetToLayer failed: Screen or LocalPlayer is invalid. PC=%s, WidgetClass=%s, LayerTag=%s"),
+		DM_LOG(InPlayerController, LogTemp, Warning, TEXT("CreateWidgetToLayer failed: Screen or LocalPlayer is invalid. PC=%s, WidgetClass=%s, LayerTag=%s"),
 			*GetNameSafe(InPlayerController),
 			*GetNameSafe(InWidgetClass.Get()),
 			*InLayerTag.ToString());
@@ -114,7 +115,7 @@ void UDMUILibrary::CreateWidgetToLayer(APlayerController* InPlayerController, TS
 	UDMUILayout* Layout = Screen->GetLayoutFromLocalPlayer(InPlayerController->GetLocalPlayer());
 	if (!Layout)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetToLayer failed: Layout is invalid. PC=%s, WidgetClass=%s, LayerTag=%s"),
+		DM_LOG(InPlayerController, LogTemp, Warning, TEXT("CreateWidgetToLayer failed: Layout is invalid. PC=%s, WidgetClass=%s, LayerTag=%s"),
 			*GetNameSafe(InPlayerController),
 			*GetNameSafe(InWidgetClass.Get()),
 			*InLayerTag.ToString());
@@ -124,14 +125,14 @@ void UDMUILibrary::CreateWidgetToLayer(APlayerController* InPlayerController, TS
 	UCommonActivatableWidgetContainerBase* Layer = Layout->GetLayerFromGameplayTag(InLayerTag);
 	if (!Layer)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetToLayer failed: Layer not found. PC=%s, WidgetClass=%s, LayerTag=%s"),
+		DM_LOG(InPlayerController, LogTemp, Warning, TEXT("CreateWidgetToLayer failed: Layer not found. PC=%s, WidgetClass=%s, LayerTag=%s"),
 			*GetNameSafe(InPlayerController),
 			*GetNameSafe(InWidgetClass.Get()),
 			*InLayerTag.ToString());
 		return;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] CreateWidgetToLayer add widget: PC=%s, WidgetClass=%s, LayerTag=%s"),
+	DM_LOG(InPlayerController, LogTemp, Log, TEXT("CreateWidgetToLayer add widget: PC=%s, WidgetClass=%s, LayerTag=%s"),
 		*GetNameSafe(InPlayerController),
 		*GetNameSafe(InWidgetClass.Get()),
 		*InLayerTag.ToString());
@@ -143,14 +144,14 @@ bool UDMUILibrary::CreateWidgetByTagToLayer(UObject* WorldContextObject, FGamepl
 	UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
 	if (!World)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetByTagToLayer failed: World is invalid. WidgetTag=%s, LayerTag=%s, Context=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("CreateWidgetByTagToLayer failed: World is invalid. WidgetTag=%s, LayerTag=%s, Context=%s"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString(),
 			*GetNameSafe(WorldContextObject));
 		return false;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] CreateWidgetByTagToLayer begin: WidgetTag=%s, LayerTag=%s, Context=%s"),
+	DM_LOG(WorldContextObject, LogTemp, Log, TEXT("CreateWidgetByTagToLayer begin: WidgetTag=%s, LayerTag=%s, Context=%s"),
 		*InWidgetTag.ToString(),
 		*InLayerTag.ToString(),
 		*GetNameSafe(WorldContextObject));
@@ -158,7 +159,7 @@ bool UDMUILibrary::CreateWidgetByTagToLayer(UObject* WorldContextObject, FGamepl
 	const TSubclassOf<UCommonActivatableWidget> WidgetClass = DMUILibraryPrivate::ResolveWidgetClassByTag(InWidgetTag);
 	if (!WidgetClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetByTagToLayer failed: ResolveWidgetClassByTag returned null. WidgetTag=%s, LayerTag=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("CreateWidgetByTagToLayer failed: ResolveWidgetClassByTag returned null. WidgetTag=%s, LayerTag=%s"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 		return false;
@@ -173,7 +174,7 @@ bool UDMUILibrary::CreateWidgetByTagToLayer(UObject* WorldContextObject, FGamepl
 			continue;
 		}
 
-		UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] CreateWidgetByTagToLayer process local controller: PC=%s, WidgetClass=%s, LayerTag=%s"),
+		DM_LOG(PlayerController, LogTemp, Log, TEXT("CreateWidgetByTagToLayer process local controller: PC=%s, WidgetClass=%s, LayerTag=%s"),
 			*GetNameSafe(PlayerController),
 			*GetNameSafe(WidgetClass.Get()),
 			*InLayerTag.ToString());
@@ -183,13 +184,13 @@ bool UDMUILibrary::CreateWidgetByTagToLayer(UObject* WorldContextObject, FGamepl
 
 	if (bCreatedAnyWidget)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] CreateWidgetByTagToLayer end: WidgetTag=%s, LayerTag=%s, CreatedAnyWidget=true"),
+		DM_LOG(WorldContextObject, LogTemp, Log, TEXT("CreateWidgetByTagToLayer end: WidgetTag=%s, LayerTag=%s, CreatedAnyWidget=true"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] CreateWidgetByTagToLayer end: WidgetTag=%s, LayerTag=%s, CreatedAnyWidget=false"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("CreateWidgetByTagToLayer end: WidgetTag=%s, LayerTag=%s, CreatedAnyWidget=false"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 	}
@@ -201,7 +202,7 @@ bool UDMUILibrary::RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonAct
 	UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
 	if (!World)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetFromLayer failed: World is invalid. Widget=%s, LayerTag=%s, Context=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetFromLayer failed: World is invalid. Widget=%s, LayerTag=%s, Context=%s"),
 			*GetNameSafe(InWidget),
 			*InLayerTag.ToString(),
 			*GetNameSafe(WorldContextObject));
@@ -210,7 +211,7 @@ bool UDMUILibrary::RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonAct
 
 	if (!IsValid(InWidget))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetFromLayer failed: Widget is invalid. LayerTag=%s, Context=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetFromLayer failed: Widget is invalid. LayerTag=%s, Context=%s"),
 			*InLayerTag.ToString(),
 			*GetNameSafe(WorldContextObject));
 		return false;
@@ -228,7 +229,7 @@ bool UDMUILibrary::RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonAct
 		UCommonActivatableWidgetContainerBase* Layer = DMUILibraryPrivate::ResolveLayerForLocalPlayer(PlayerController, InLayerTag);
 		if (!Layer)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetFromLayer skipped: Layer not found. PC=%s, Widget=%s, LayerTag=%s"),
+			DM_LOG(PlayerController, LogTemp, Warning, TEXT("RemoveWidgetFromLayer skipped: Layer not found. PC=%s, Widget=%s, LayerTag=%s"),
 				*GetNameSafe(PlayerController),
 				*GetNameSafe(InWidget),
 				*InLayerTag.ToString());
@@ -242,7 +243,7 @@ bool UDMUILibrary::RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonAct
 		}
 
 		Layer->RemoveWidget(*InWidget);
-		UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] RemoveWidgetFromLayer removed widget: PC=%s, Widget=%s, LayerTag=%s"),
+		DM_LOG(PlayerController, LogTemp, Log, TEXT("RemoveWidgetFromLayer removed widget: PC=%s, Widget=%s, LayerTag=%s"),
 			*GetNameSafe(PlayerController),
 			*GetNameSafe(InWidget),
 			*InLayerTag.ToString());
@@ -251,7 +252,7 @@ bool UDMUILibrary::RemoveWidgetFromLayer(UObject* WorldContextObject, UCommonAct
 
 	if (!bRemovedAnyWidget)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetFromLayer end: Widget=%s, LayerTag=%s, RemovedAnyWidget=false"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetFromLayer end: Widget=%s, LayerTag=%s, RemovedAnyWidget=false"),
 			*GetNameSafe(InWidget),
 			*InLayerTag.ToString());
 	}
@@ -264,14 +265,14 @@ bool UDMUILibrary::RemoveWidgetByTagFromLayer(UObject* WorldContextObject, FGame
 	UWorld* World = WorldContextObject ? WorldContextObject->GetWorld() : nullptr;
 	if (!World)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer failed: World is invalid. WidgetTag=%s, LayerTag=%s, Context=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetByTagFromLayer failed: World is invalid. WidgetTag=%s, LayerTag=%s, Context=%s"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString(),
 			*GetNameSafe(WorldContextObject));
 		return false;
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer begin: WidgetTag=%s, LayerTag=%s, Context=%s"),
+	DM_LOG(WorldContextObject, LogTemp, Log, TEXT("RemoveWidgetByTagFromLayer begin: WidgetTag=%s, LayerTag=%s, Context=%s"),
 		*InWidgetTag.ToString(),
 		*InLayerTag.ToString(),
 		*GetNameSafe(WorldContextObject));
@@ -279,7 +280,7 @@ bool UDMUILibrary::RemoveWidgetByTagFromLayer(UObject* WorldContextObject, FGame
 	const TSubclassOf<UCommonActivatableWidget> WidgetClass = DMUILibraryPrivate::ResolveWidgetClassByTag(InWidgetTag);
 	if (!WidgetClass)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer failed: ResolveWidgetClassByTag returned null. WidgetTag=%s, LayerTag=%s"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetByTagFromLayer failed: ResolveWidgetClassByTag returned null. WidgetTag=%s, LayerTag=%s"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 		return false;
@@ -297,7 +298,7 @@ bool UDMUILibrary::RemoveWidgetByTagFromLayer(UObject* WorldContextObject, FGame
 		UCommonActivatableWidgetContainerBase* Layer = DMUILibraryPrivate::ResolveLayerForLocalPlayer(PlayerController, InLayerTag);
 		if (!Layer)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer skipped: Layer not found. PC=%s, WidgetTag=%s, LayerTag=%s"),
+			DM_LOG(PlayerController, LogTemp, Warning, TEXT("RemoveWidgetByTagFromLayer skipped: Layer not found. PC=%s, WidgetTag=%s, LayerTag=%s"),
 				*GetNameSafe(PlayerController),
 				*InWidgetTag.ToString(),
 				*InLayerTag.ToString());
@@ -323,13 +324,13 @@ bool UDMUILibrary::RemoveWidgetByTagFromLayer(UObject* WorldContextObject, FGame
 
 	if (bRemovedAnyWidget)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer end: WidgetTag=%s, LayerTag=%s, RemovedAnyWidget=true"),
+		DM_LOG(WorldContextObject, LogTemp, Log, TEXT("RemoveWidgetByTagFromLayer end: WidgetTag=%s, LayerTag=%s, RemovedAnyWidget=true"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[DMUILibrary] RemoveWidgetByTagFromLayer end: WidgetTag=%s, LayerTag=%s, RemovedAnyWidget=false"),
+		DM_LOG(WorldContextObject, LogTemp, Warning, TEXT("RemoveWidgetByTagFromLayer end: WidgetTag=%s, LayerTag=%s, RemovedAnyWidget=false"),
 			*InWidgetTag.ToString(),
 			*InLayerTag.ToString());
 	}
