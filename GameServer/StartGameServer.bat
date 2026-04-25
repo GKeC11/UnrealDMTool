@@ -6,6 +6,7 @@ title NoOutsiders GameServer
 
 echo [GameServer] Working directory: %CD%
 echo [GameServer] Default URL: http://127.0.0.1:7788
+echo [GameServer] Travel address auto-detects LAN IPv4 unless PACKAGED_SERVER_ADDRESS is set.
 echo.
 
 where node >nul 2>nul

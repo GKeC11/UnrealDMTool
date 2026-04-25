@@ -22,6 +22,11 @@ declare module "node:http" {
   export = value;
 }
 
+declare module "node:os" {
+  const value: any;
+  export = value;
+}
+
 declare module "node:path" {
   const value: any;
   export = value;

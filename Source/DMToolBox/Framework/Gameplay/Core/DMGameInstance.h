@@ -5,6 +5,8 @@
 
 class UClass;
 
+DECLARE_MULTICAST_DELEGATE(FDMScriptInitializedDelegate);
+
 UCLASS()
 class DMTOOLBOX_API UDMGameInstance : public UGameInstance
 {
@@ -12,6 +14,13 @@ class DMTOOLBOX_API UDMGameInstance : public UGameInstance
 
 public:
 	bool AddPuertsLoadedClassReference(UClass* InClass);
+
+	bool IsScriptInitialized() const { return bScriptInitialized; }
+
+	UFUNCTION(BlueprintCallable)
+	void NotifyScriptInitialized();
+
+	FDMScriptInitializedDelegate OnScriptInitialized;
 
 protected:
 	// Override
@@ -24,4 +33,6 @@ protected:
 private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UClass>> PuertsLoadedClassReferences;
+
+	bool bScriptInitialized = false;
 };

@@ -46,3 +46,6 @@ Use this skill for Unreal Engine C++ work in this repository. Favor UE-native ex
 - Match the existing naming style and macro usage already present in `DMToolBox`.
 - Keep runtime gameplay code in `Plugins/DMToolBox/Source/DMToolBox/` and editor tooling in `Plugins/DMToolBox/Source/DMToolBoxEditor/`.
 - Prefer extending existing framework areas such as `Camera`, `Gameplay`, `Library`, `Puerts`, or `UI` before creating a new top-level bucket.
+- Prefer `DM_LOG` for DMToolBox runtime/editor code when adding diagnostic logs, so file/function and net-mode context stay consistent with the rest of the plugin.
+- Treat the `Verbosity` argument of `DM_LOG` and `UE_LOG` as a compile-time macro token such as `Log`, `Warning`, or `Error`. Do not pass ternary expressions or other runtime expressions there.
+- When log level depends on runtime state, branch with explicit `if/else` and call `DM_LOG` separately for each verbosity.

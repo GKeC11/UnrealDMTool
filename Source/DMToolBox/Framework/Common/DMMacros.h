@@ -26,7 +26,7 @@ namespace DMLogPrivate
 		int32 ExtensionIndex = INDEX_NONE;
 		if (Result.FindLastChar(TEXT('.'), ExtensionIndex))
 		{
-			Result.LeftInline(ExtensionIndex, false);
+			Result.LeftInline(ExtensionIndex, EAllowShrinking::No);
 		}
 
 		return Result;
@@ -43,7 +43,7 @@ namespace DMLogPrivate
 		int32 ScopeIndex = INDEX_NONE;
 		if (Result.FindLastChar(TEXT(':'), ScopeIndex))
 		{
-			Result.RightChopInline(ScopeIndex + 1, false);
+			Result.RightChopInline(ScopeIndex + 1, EAllowShrinking::No);
 		}
 
 		return Result;

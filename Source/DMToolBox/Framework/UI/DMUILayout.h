@@ -18,11 +18,14 @@ public:
 protected:
 	// Override
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 
 	// UI
 	UFUNCTION(BlueprintCallable)
 	void RegisterLayer(FGameplayTag LayerTag, UCommonActivatableWidgetContainerBase* LayerWidget);
 
+	void InitializeWhenReady();
+	void RemoveReadinessDelegates();
 	void InitializeFromWorldSetting();
 
 protected:
@@ -32,4 +35,9 @@ protected:
 
 	// UI
 	TMap<FGameplayTag, UCommonActivatableWidgetContainerBase*> LayerMap;
+
+	FDelegateHandle ScriptInitializedDelegateHandle;
+	FDelegateHandle LevelTravelCompletedDelegateHandle;
+
+	bool bInitializedFromWorldSetting = false;
 };

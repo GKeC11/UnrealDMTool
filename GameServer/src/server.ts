@@ -2,6 +2,7 @@ import crypto = require("node:crypto");
 import childProcess = require("node:child_process");
 import fs = require("node:fs");
 import http = require("node:http");
+import os = require("node:os");
 import path = require("node:path");
 import { URL } from "node:url";
 
@@ -103,7 +104,8 @@ const DATA_FILE = process.env.GAME_SERVER_DATA
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const PACKAGE_BUILDS_DIR = path.resolve(REPO_ROOT, "PackageBuilds");
 const SERVER_LAUNCH_BAT_RELATIVE_PATH = path.join("Server", "WindowsServer", "RunServerWithLog.bat");
-const PACKAGED_SERVER_ADDRESS = process.env.PACKAGED_SERVER_ADDRESS || "127.0.0.1:7777";
+const PACKAGED_SERVER_PORT = Number(process.env.PACKAGED_SERVER_PORT || 7777);
+const PACKAGED_SERVER_ADDRESS = resolvePackagedServerAddress();
 
 function createEmptyState(): ServerState {
     return {
@@ -130,6 +132,57 @@ function normalizeString(value: unknown, fallback = ""): string {
 
 function logServer(message: string): void {
     console.log(`[${nowIso()}][GameServer] ${message}`);
+}
+
+function isPrivateIPv4(address: string): boolean {
+    const parts = address.split(".").map((part) => Number(part));
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+        return false;
+    }
+
+    return parts[0] === 10
+        || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+        || (parts[0] === 192 && parts[1] === 168);
+}
+
+function getLanIPv4Address(): string | undefined {
+    const networkInterfaces = os.networkInterfaces();
+    const fallbackAddresses: string[] = [];
+
+    for (const entries of Object.values(networkInterfaces) as any[]) {
+        for (const entry of entries ?? []) {
+            if (!entry || entry.family !== "IPv4" || entry.internal) {
+                continue;
+            }
+
+            const address = normalizeString(entry.address);
+            if (!address) {
+                continue;
+            }
+
+            if (isPrivateIPv4(address)) {
+                return address;
+            }
+
+            fallbackAddresses.push(address);
+        }
+    }
+
+    return fallbackAddresses[0];
+}
+
+function resolvePackagedServerAddress(): string {
+    const configuredAddress = normalizeString(process.env.PACKAGED_SERVER_ADDRESS);
+    if (configuredAddress) {
+        return configuredAddress;
+    }
+
+    const lanAddress = getLanIPv4Address();
+    if (lanAddress) {
+        return `${lanAddress}:${PACKAGED_SERVER_PORT}`;
+    }
+
+    return `127.0.0.1:${PACKAGED_SERVER_PORT}`;
 }
 
 // Load the persisted test-server state. Missing or empty files start from a clean in-memory shape.
@@ -752,6 +805,7 @@ const server = http.createServer((request: any, response: any) => {
 
 server.listen(PORT, () => {
     logServer(`Listening on http://127.0.0.1:${PORT}`);
+    logServer(`Packaged server travel address: ${PACKAGED_SERVER_ADDRESS}`);
     logServer(`State file: ${DATA_FILE}`);
     logServer(`Initial state. accounts=${Object.keys(state.accounts).length}, online=${state.lobby.onlineAccountIds.length}, rooms=${Object.keys(state.rooms).length}`);
 });

@@ -10,6 +10,7 @@ bool UDMGameInstance::AddPuertsLoadedClassReference(UClass* InClass)
 	}
 
 	PuertsLoadedClassReferences.AddUnique(InClass);
+
 	return true;
 }
 
@@ -18,4 +19,15 @@ void UDMGameInstance::OnStart()
 	Super::OnStart();
 
 	TS_Init();
+}
+
+void UDMGameInstance::NotifyScriptInitialized()
+{
+	if (bScriptInitialized)
+	{
+		return;
+	}
+
+	bScriptInitialized = true;
+	OnScriptInitialized.Broadcast();
 }
