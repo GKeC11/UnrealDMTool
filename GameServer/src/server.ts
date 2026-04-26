@@ -550,7 +550,7 @@ function startPackagedGameServer(roomId: RoomId): RouteResult<{ launchBatPath: s
     const launchBatPath = launchBatResult.value;
     const launcher = childProcess.spawn(
         "cmd.exe",
-        ["/c", "start", "NoOutsiders Server", launchBatPath],
+        ["/c", "call", launchBatPath],
         {
             cwd: path.dirname(launchBatPath),
             detached: true,
