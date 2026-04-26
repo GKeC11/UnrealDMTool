@@ -25,7 +25,7 @@ protected:
 	void RegisterLayer(FGameplayTag LayerTag, UCommonActivatableWidgetContainerBase* LayerWidget);
 
 	void InitializeWhenReady();
-	void RemoveReadinessDelegates();
+	void RemoveScriptInitializedDelegate();
 	void InitializeFromWorldSetting();
 
 protected:
@@ -37,7 +37,6 @@ protected:
 	TMap<FGameplayTag, UCommonActivatableWidgetContainerBase*> LayerMap;
 
 	FDelegateHandle ScriptInitializedDelegateHandle;
-	FDelegateHandle LevelTravelCompletedDelegateHandle;
 
 	bool bInitializedFromWorldSetting = false;
 };

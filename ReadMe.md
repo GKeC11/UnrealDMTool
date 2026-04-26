@@ -23,6 +23,30 @@
   - 相机 Actor 和相机管理组件
 - `Framework/Puerts`
   - Puerts 辅助对象和注册逻辑
+- `Framework/Network`
+  - GameServer HTTP 客户端、Dedicated Server 生命周期辅助
+
+## 网络职责边界
+
+当前项目把“大厅同步”和“对局同步”拆成两套运行时：
+
+- `Plugins/DMToolBox/GameServer`
+  - 轻量 HTTP GameServer，负责账号、在线状态、Lobby、Room 数据同步。
+  - Lobby 阶段不依赖 Unreal Dedicated Server。客户端通过 `UDMGameServerSubsystem` 调用 `/lobby`、`/rooms`、`/game/start` 等接口同步房间状态。
+  - `/game/start` 用于为指定 Room 启动打包后的 Match Dedicated Server，并把 `ServerAddress` 写回 Room，供客户端跳转连接。
+- Unreal Dedicated Server
+  - 只负责 Match 阶段的实时对局同步。
+  - Match DS 的生命周期逻辑由 `DMDedicatedServerSubsystem` 这类专用服务组件承载，不应该放进 Lobby GameMode 或公共 GameMode 基类。
+
+因此，类似“DS 内玩家全部断开后自动关闭”的逻辑，只适用于 Match DS：
+
+1. `UDMDedicatedServerSubsystem` 只在 Dedicated Server 的 `GameInstance` 中创建。
+2. Match GameMode 在 `PostLogin` / `Logout` 中把玩家连接变化转发给 Subsystem。
+3. Subsystem 记录是否曾经有玩家成功进入 DS，并在玩家进入时取消空服关闭倒计时。
+4. 玩家退出后，如果当前 Match DS 人数为 0，Subsystem 启动短延迟倒计时。
+5. 倒计时结束再次确认仍为空服，再请求退出 DS 进程。
+
+Lobby 的在线状态、房间删除、房主转移、准备状态同步仍由 GameServer API 负责，不应通过 DS 玩家连接数推导。
 
 ## 快速接入
 

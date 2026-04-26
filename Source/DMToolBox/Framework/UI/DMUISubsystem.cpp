@@ -2,9 +2,21 @@
 
 #include "DMToolBox/Framework/Config/DMToolBoxDeveloperSetting.h"
 
+bool UDMUISubsystem::ShouldCreateSubsystem(UObject* Outer) const
+{
+	const UGameInstance* GameInstance = Cast<UGameInstance>(Outer);
+	return Super::ShouldCreateSubsystem(Outer) && GameInstance && !GameInstance->IsDedicatedServerInstance();
+}
+
 void UDMUISubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
+
+	UGameInstance* GameInstance = GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
 
 	const UDMToolBoxDeveloperSetting* DMToolBoxDeveloperSettings = GetDefault<UDMToolBoxDeveloperSetting>();
 	check(DMToolBoxDeveloperSettings);
@@ -14,20 +26,11 @@ void UDMUISubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		CurrentScreen = NewObject<UDMUIScreen>(this, UIScreenClass);
 	}
 
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		GameInstance->OnLocalPlayerAddedEvent.AddUObject(this, &ThisClass::OnLocalPlayerAddedEvent);
-	}
-
-	PostWorldInitializationDelegateHandle = FWorldDelegates::OnPostWorldInitialization.AddUObject(this, &ThisClass::HandlePostWorldInitialization);
-	WorldCleanupDelegateHandle = FWorldDelegates::OnWorldCleanup.AddUObject(this, &ThisClass::HandleWorldCleanup);
+	GameInstance->OnLocalPlayerAddedEvent.AddUObject(this, &ThisClass::OnLocalPlayerAddedEvent);
 }
 
 void UDMUISubsystem::Deinitialize()
 {
-	FWorldDelegates::OnPostWorldInitialization.Remove(PostWorldInitializationDelegateHandle);
-	FWorldDelegates::OnWorldCleanup.Remove(WorldCleanupDelegateHandle);
-
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		TArray<ULocalPlayer*> LocalPlayers = GameInstance->GetLocalPlayers();
@@ -49,33 +52,4 @@ void UDMUISubsystem::OnLocalPlayerAddedEvent(ULocalPlayer* InLocalPlayer)
 	{
 		CurrentScreen->RegisterLayoutForLocalPlayer(InPlayerController->GetLocalPlayer());
 	});
-}
-
-void UDMUISubsystem::HandlePostWorldInitialization(UWorld* InitializedWorld, const UWorld::InitializationValues InitializationValues)
-{
-	(void)InitializationValues;
-
-	MarkLevelTravelCompleted(InitializedWorld);
-}
-
-void UDMUISubsystem::HandleWorldCleanup(UWorld* CleanupWorld, bool bSessionEnded, bool bCleanupResources)
-{
-	(void)bSessionEnded;
-	(void)bCleanupResources;
-
-	if (CleanupWorld && CleanupWorld->GetGameInstance() == GetGameInstance())
-	{
-		bLevelTravelCompleted = false;
-	}
-}
-
-void UDMUISubsystem::MarkLevelTravelCompleted(UWorld* LoadedWorld)
-{
-	if (!LoadedWorld || LoadedWorld->GetGameInstance() != GetGameInstance() || bLevelTravelCompleted)
-	{
-		return;
-	}
-
-	bLevelTravelCompleted = true;
-	OnLevelTravelCompleted.Broadcast();
 }

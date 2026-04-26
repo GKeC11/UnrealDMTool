@@ -36,6 +36,7 @@ Use this skill for Unreal Engine C++ work in this repository. Favor UE-native ex
 
 ## Comment Rules
 
+- Use Chinese for comments in UE C++ code unless matching an existing third-party or engine-facing English comment block.
 - Write comments for intent, constraints, lifecycle ordering, and networking assumptions.
 - Keep comments short and useful. Explain why the code exists or what must stay true.
 - Add comments around tricky UE behavior such as initialization order, delegate binding, ownership assumptions, or replication caveats.

@@ -3,7 +3,6 @@
 #include "DMActivatableWidgetContainer.h"
 #include "DMToolBox/Framework/Gameplay/Core/DMGameInstance.h"
 #include "DMToolBox/Framework/Library/DMSystemLibrary.h"
-#include "DMToolBox/Framework/UI/DMUISubsystem.h"
 
 UCommonActivatableWidgetContainerBase* UDMUILayout::GetLayerFromGameplayTag(FGameplayTag InTag)
 {
@@ -30,7 +29,8 @@ void UDMUILayout::NativeConstruct()
 
 void UDMUILayout::NativeDestruct()
 {
-	RemoveReadinessDelegates();
+	RemoveScriptInitializedDelegate();
+	bInitializedFromWorldSetting = false;
 
 	Super::NativeDestruct();
 }
@@ -43,43 +43,31 @@ void UDMUILayout::RegisterLayer(FGameplayTag LayerTag, UCommonActivatableWidgetC
 void UDMUILayout::InitializeWhenReady()
 {
 	UDMGameInstance* GameInstance = Cast<UDMGameInstance>(GetGameInstance());
-	UDMUISubsystem* UISubsystem = GameInstance ? GameInstance->GetSubsystem<UDMUISubsystem>() : nullptr;
-	if (!GameInstance || !UISubsystem)
+	if (!GameInstance)
 	{
 		return;
 	}
 
-	if (GameInstance->IsScriptInitialized() && UISubsystem->IsLevelTravelCompleted())
+	if (GameInstance->IsScriptInitialized())
 	{
 		InitializeFromWorldSetting();
 		return;
 	}
 
-	// Initial widgets rely on both world settings and Puerts mixins, so wait for both lifecycle gates.
+	// Initial widgets rely on Puerts mixins, so wait until the script layer is ready.
 	if (!GameInstance->IsScriptInitialized() && !ScriptInitializedDelegateHandle.IsValid())
 	{
 		ScriptInitializedDelegateHandle = GameInstance->OnScriptInitialized.AddUObject(this, &ThisClass::InitializeWhenReady);
 	}
-
-	if (!UISubsystem->IsLevelTravelCompleted() && !LevelTravelCompletedDelegateHandle.IsValid())
-	{
-		LevelTravelCompletedDelegateHandle = UISubsystem->OnLevelTravelCompleted.AddUObject(this, &ThisClass::InitializeWhenReady);
-	}
 }
 
-void UDMUILayout::RemoveReadinessDelegates()
+void UDMUILayout::RemoveScriptInitializedDelegate()
 {
 	if (UDMGameInstance* GameInstance = Cast<UDMGameInstance>(GetGameInstance()))
 	{
 		GameInstance->OnScriptInitialized.Remove(ScriptInitializedDelegateHandle);
-
-		if (UDMUISubsystem* UISubsystem = GameInstance->GetSubsystem<UDMUISubsystem>())
-		{
-			UISubsystem->OnLevelTravelCompleted.Remove(LevelTravelCompletedDelegateHandle);
-		}
 	}
 	ScriptInitializedDelegateHandle.Reset();
-	LevelTravelCompletedDelegateHandle.Reset();
 }
 
 void UDMUILayout::InitializeFromWorldSetting()
@@ -90,7 +78,7 @@ void UDMUILayout::InitializeFromWorldSetting()
 	}
 
 	bInitializedFromWorldSetting = true;
-	RemoveReadinessDelegates();
+	RemoveScriptInitializedDelegate();
 
 	if (UDMLevelInitializationSetting* LevelInitializationSetting = UDMSystemLibrary::GetLevelInitializationSetting(GetWorld()))
 	{

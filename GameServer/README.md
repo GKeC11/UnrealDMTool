@@ -5,6 +5,7 @@ Lightweight HTTP game server for managing:
 - Account data, including player names and session tokens.
 - Lobby data, including currently online accounts.
 - Room data shaped like the Unreal `FNORoomData` / `FNORoomMemberData` structs.
+- Lobby synchronization before match travel. The Unreal Dedicated Server is only used for the Match phase.
 
 The server is written in TypeScript. Main source: `src/server.ts`.
 
@@ -61,6 +62,12 @@ Example login:
 ```
 
 `POST /accounts/login` logs in an existing account, or registers it immediately when `accountId` does not exist. The response `data.bRegistered` is `true` only for newly-created accounts.
+
+## Runtime Boundary
+
+GameServer owns lobby and room synchronization. Starting a game launches a packaged Match Dedicated Server and writes its `ServerAddress` back to the room data.
+
+Dedicated Server process lifetime, such as shutting down after all match players disconnect, is handled in Unreal by `UDMDedicatedServerSubsystem`. Lobby presence, room deletion, host transfer, and ready state stay in the GameServer API.
 
 Example create room:
 

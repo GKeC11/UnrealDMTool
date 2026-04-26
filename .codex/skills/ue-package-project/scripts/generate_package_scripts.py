@@ -173,14 +173,9 @@ function New-ServerLaunchBat {
         "setlocal",
         "",
         ('cd /d "%~dp0{0}\\Binaries\\Win64"' -f $ProjectName),
-        ('"{0}" /Game/NoOutsiders/Levels/L_Lobby -log -port=7777' -f $ServerExeName),
-        "set ""EXIT_CODE=%ERRORLEVEL%""",
+        ('start "" "{0}" /Game/NoOutsiders/Levels/L_Gameplay -log -port=7777' -f $ServerExeName),
         "",
-        "echo.",
-        "echo Server exited with code %EXIT_CODE%.",
-        "pause",
-        "",
-        "endlocal & exit /b %EXIT_CODE%"
+        "endlocal & exit /b 0"
     )
 
     Set-Content -LiteralPath $LaunchBatPath -Value $BatLines -Encoding ASCII
