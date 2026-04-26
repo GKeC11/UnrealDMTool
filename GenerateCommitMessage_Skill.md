@@ -16,4 +16,5 @@
 **约束与输出规范:**
 - 自动生成的代码或编译副产物（如 `ue.d.ts`, `*.pb`，自动生成的蓝图 Hash）只需要一句话统一带过，不用逐行翻译。
 - 保证信息具有极高的可读性，**并且必须使用中文书写输出内容**。
-- 最终只输出可以被直接 copy/paste 到 Git 工具中的 Commit Comment。
+- 如果检测到存在 Submodule 的变更，**必须为每个发生变更的 Submodule 额外且独立地生成一份对应其内部修改内容的 Commit Comment**。并与主工程的 Commit Comment 共同输出，格式要求一致。
+- 最终只输出可以被直接 copy/paste 到 Git 工具中的各个 Commit Comment。
