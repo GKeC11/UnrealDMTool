@@ -1,6 +1,7 @@
 declare const require: any;
 declare const process: any;
 declare const __dirname: string;
+declare const Buffer: any;
 
 declare module "node:crypto" {
   const value: any;

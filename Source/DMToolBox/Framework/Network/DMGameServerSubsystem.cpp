@@ -1,322 +1,438 @@
 #include "DMGameServerSubsystem.h"
 
-#include "DMToolBox/Framework/Common/DMMacros.h"
 #include "Dom/JsonObject.h"
-#include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
-#include "Interfaces/IHttpResponse.h"
+#include "DMToolBox/Framework/Common/DMMacros.h"
+#include "IWebSocket.h"
+#include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
-#include "TimerManager.h"
+#include "Modules/ModuleManager.h"
+#include "WebSocketsModule.h"
+
+namespace
+{
+	constexpr int32 ProtocolBasePing = 1;
+	constexpr int32 ProtocolBasePong = 2;
+}
 
 void UDMGameServerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	// Normalize once at startup so the request builder can safely append relative API paths.
-	ServerBaseUrl.RemoveFromEnd(TEXT("/"));
-	DM_LOG(this, LogTemp, Log, TEXT("Initialize: ServerBaseUrl=%s"), *ServerBaseUrl);
+	if (!FModuleManager::Get().IsModuleLoaded(TEXT("WebSockets")))
+	{
+		FModuleManager::LoadModuleChecked<FWebSocketsModule>(TEXT("WebSockets"));
+	}
+
+	DM_LOG(this, LogTemp, Log, TEXT("Initialize: ServerUrl=%s"), *ServerUrl);
 }
 
 void UDMGameServerSubsystem::Deinitialize()
 {
-	DM_LOG(this, LogTemp, Log, TEXT("Deinitialize: WatchedRoomId=%s"), *WatchedRoomId);
-	StopWatchingRoom();
+	DM_LOG(this, LogTemp, Log, TEXT("Deinitialize: Connected=%s"), IsConnected() ? TEXT("true") : TEXT("false"));
+	Disconnect();
 	Super::Deinitialize();
 }
 
-void UDMGameServerSubsystem::SetServerBaseUrl(const FString& InServerBaseUrl)
+void UDMGameServerSubsystem::SetServerUrl(const FString& InServerUrl)
 {
-	ServerBaseUrl = InServerBaseUrl.TrimStartAndEnd();
-	ServerBaseUrl.RemoveFromEnd(TEXT("/"));
+	ServerUrl = NormalizeServerUrl(InServerUrl);
 
-	if (ServerBaseUrl.IsEmpty())
-	{
-		ServerBaseUrl = TEXT("http://127.0.0.1:7788");
-	}
-
-	DM_LOG(this, LogTemp, Log, TEXT("SetServerBaseUrl: ServerBaseUrl=%s"), *ServerBaseUrl);
+	DM_LOG(this, LogTemp, Log, TEXT("SetServerUrl: ServerUrl=%s"), *ServerUrl);
 }
 
-void UDMGameServerSubsystem::SendRequest(const FString& Verb, const FString& Path, const FString& Body, FDMGameServerResponseDelegate Callback)
+void UDMGameServerSubsystem::Connect()
 {
-	TSharedRef<IHttpRequest> Request = FHttpModule::Get().CreateRequest();
-	const FString NormalizedVerb = Verb.IsEmpty() ? TEXT("GET") : Verb.ToUpper();
-	const FString ResolvedUrl = BuildUrl(Path);
-	Request->SetURL(ResolvedUrl);
-	Request->SetVerb(NormalizedVerb);
-	Request->SetHeader(TEXT("Accept"), TEXT("application/json"));
-
-	if (!Body.IsEmpty())
+	if (IsConnected())
 	{
-		Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-		Request->SetContentAsString(Body);
+		DM_LOG(this, LogTemp, Log, TEXT("Connect skipped: already connected. ServerUrl=%s"), *ServerUrl);
+		return;
 	}
 
-	DM_LOG(this, LogTemp, Log, TEXT("SendRequest begin: Verb=%s, Path=%s, Url=%s, HasBody=%s"),
-		*NormalizedVerb, *Path, *ResolvedUrl, Body.IsEmpty() ? TEXT("false") : TEXT("true"));
+	if (bIsConnecting)
+	{
+		DM_LOG(this, LogTemp, Log, TEXT("Connect skipped: connection is already pending. ServerUrl=%s"), *ServerUrl);
+		return;
+	}
 
-	TWeakObjectPtr<UDMGameServerSubsystem> WeakThis(this);
-	Request->OnProcessRequestComplete().BindLambda(
-		[WeakThis, Callback, NormalizedVerb, Path, ResolvedUrl](FHttpRequestPtr RequestPtr, FHttpResponsePtr Response, bool bSucceeded)
+	if (WebSocket.IsValid())
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("Connect found a stale socket. ServerUrl=%s"), *ServerUrl);
+		ClearSocket();
+	}
+
+	bIsConnecting = true;
+	DM_LOG(this, LogTemp, Log, TEXT("Connect begin: ServerUrl=%s, Protocols=<none>, UpgradeHeaders=<none>"), *ServerUrl);
+	WebSocket = FWebSocketsModule::Get().CreateWebSocket(ServerUrl);
+	BindSocketEvents();
+	WebSocket->Connect();
+}
+
+void UDMGameServerSubsystem::Disconnect()
+{
+	StopHeartbeat();
+
+	if (!WebSocket.IsValid())
+	{
+		bIsConnecting = false;
+		FailPendingRequests(0, TEXT("GameServer socket is not connected."));
+		DM_LOG(this, LogTemp, Log, TEXT("Disconnect skipped: socket is invalid. ServerUrl=%s"), *ServerUrl);
+		return;
+	}
+
+	if (!WebSocket->IsConnected() && !bIsConnecting)
+	{
+		FailPendingRequests(0, TEXT("GameServer socket is not connected."));
+		DM_LOG(this, LogTemp, Log, TEXT("Disconnect skipped: socket is already disconnected. ServerUrl=%s"), *ServerUrl);
+		ClearSocket();
+		return;
+	}
+
+	DM_LOG(this, LogTemp, Log, TEXT("Disconnect: ServerUrl=%s, Connected=%s"),
+		*ServerUrl,
+		WebSocket->IsConnected() ? TEXT("true") : TEXT("false"));
+
+	bIsConnecting = false;
+	FailPendingRequests(0, TEXT("GameServer disconnected."));
+	WebSocket->Close();
+	ClearSocket();
+}
+
+void UDMGameServerSubsystem::SendTextMessage(const FString& Message)
+{
+	if (!IsConnected())
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("SendTextMessage failed: socket is not connected. Message=%s"), *Message);
+		return;
+	}
+
+	WebSocket->Send(Message);
+	DM_LOG(this, LogTemp, Log, TEXT("SendTextMessage: Message=%s"), *Message);
+}
+
+void UDMGameServerSubsystem::SendPing()
+{
+	if (!IsConnected())
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("SendPing skipped: socket is not connected."));
+		return;
+	}
+
+	// ProtocolBase.PING = 1. Keep the payload empty for GameServer heartbeat refresh.
+	WebSocket->Send(FString::Printf(TEXT("{\"type\":%d,\"payload\":{}}"), ProtocolBasePing));
+}
+
+void UDMGameServerSubsystem::SendProtocolRequest(
+	const FName RequestProtocolName,
+	const int32 RequestType,
+	const FString& PayloadJson,
+	const FName ResponseProtocolName,
+	const int32 ResponseType,
+	FDMGameServerResponseDelegate Callback)
+{
+	if (PendingResponseCallbacks.Contains(ResponseType))
+	{
+		Callback.ExecuteIfBound(false, ResponseType, FString::Printf(TEXT("Protocol request already pending. response=%s"), *ResponseProtocolName.ToString()));
+		return;
+	}
+
+	FDMGameServerPendingRequest Request;
+	Request.RequestProtocolName = RequestProtocolName;
+	Request.RequestType = RequestType;
+	Request.PayloadJson = PayloadJson;
+	Request.ResponseProtocolName = ResponseProtocolName;
+	Request.ResponseType = ResponseType;
+	Request.Callback = Callback;
+
+	if (IsConnected())
+	{
+		SendPendingRequest(Request);
+		return;
+	}
+
+	PendingRequests.Add(Request);
+	DM_LOG(this, LogTemp, Log, TEXT("Protocol request waits for GameServer connection. request=%s, type=%d, response=%s"),
+		*RequestProtocolName.ToString(),
+		RequestType,
+		*ResponseProtocolName.ToString());
+	Connect();
+}
+
+bool UDMGameServerSubsystem::IsConnected() const
+{
+	return WebSocket.IsValid() && WebSocket->IsConnected();
+}
+
+FString UDMGameServerSubsystem::NormalizeServerUrl(const FString& InServerUrl)
+{
+	FString Url = InServerUrl.TrimStartAndEnd();
+	if (Url.IsEmpty())
+	{
+		return TEXT("ws://127.0.0.1:7788/ws");
+	}
+
+	if (Url.StartsWith(TEXT("http://")))
+	{
+		Url.RemoveFromStart(TEXT("http://"));
+		Url = FString::Printf(TEXT("ws://%s"), *Url);
+	}
+	else if (Url.StartsWith(TEXT("https://")))
+	{
+		Url.RemoveFromStart(TEXT("https://"));
+		Url = FString::Printf(TEXT("wss://%s"), *Url);
+	}
+
+	Url.RemoveFromEnd(TEXT("/"));
+	if (!Url.EndsWith(TEXT("/ws")))
+	{
+		Url += TEXT("/ws");
+	}
+
+	return Url;
+}
+
+void UDMGameServerSubsystem::SendProtocolMessage(const FName ProtocolName, const int32 Type, const FString& PayloadJson)
+{
+	const FString Message = FString::Printf(TEXT("{\"type\":%d,\"payload\":%s}"), Type, *PayloadJson);
+	if (!IsConnected())
+	{
+		FDMGameServerPendingRequest Request;
+		Request.RequestProtocolName = ProtocolName;
+		Request.RequestType = Type;
+		Request.PayloadJson = PayloadJson;
+		PendingRequests.Add(Request);
+		DM_LOG(this, LogTemp, Log, TEXT("SendProtocolMessage queued: protocol=%s, type=%d, pending=%d"),
+			*ProtocolName.ToString(),
+			Type,
+			PendingRequests.Num());
+		Connect();
+		return;
+	}
+
+	SendTextMessage(Message);
+}
+
+void UDMGameServerSubsystem::BindSocketEvents()
+{
+	if (!WebSocket.IsValid())
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("BindSocketEvents skipped: socket is invalid."));
+		return;
+	}
+
+	WebSocket->OnConnected().AddLambda([this]()
+	{
+		bIsConnecting = false;
+		DM_LOG(this, LogTemp, Log, TEXT("Connected: ServerUrl=%s"), *ServerUrl);
+		StartHeartbeat();
+		OnGameServerConnected.Broadcast();
+		FlushPendingRequests();
+	});
+
+	WebSocket->OnConnectionError().AddLambda([this](const FString& Error)
+	{
+		bIsConnecting = false;
+		StopHeartbeat();
+		const FString ErrorText = Error.IsEmpty() ? TEXT("GameServer WebSocket connection failed.") : Error;
+		DM_LOG(this, LogTemp, Error, TEXT("Connection error: ServerUrl=%s, Error=%s"), *ServerUrl, *ErrorText);
+		FailPendingRequests(0, ErrorText);
+		ClearSocket();
+		OnGameServerError.Broadcast(ErrorText);
+	});
+
+	WebSocket->OnClosed().AddLambda([this](const int32 StatusCode, const FString& Reason, const bool bWasClean)
+	{
+		bIsConnecting = false;
+		StopHeartbeat();
+		DM_LOG(this, LogTemp, Log, TEXT("Closed: StatusCode=%d, Reason=%s, WasClean=%s"),
+			StatusCode,
+			*Reason,
+			bWasClean ? TEXT("true") : TEXT("false"));
+
+		FailPendingRequests(StatusCode, Reason);
+
+		OnGameServerDisconnected.Broadcast(Reason);
+		ClearSocket();
+	});
+
+	WebSocket->OnMessage().AddLambda([this](const FString& Message)
+	{
+		DM_LOG(this, LogTemp, Log, TEXT("Message received: %s"), *Message);
+		HandleServerMessage(Message);
+		OnGameServerMessage.Broadcast(Message);
+	});
+}
+
+void UDMGameServerSubsystem::ClearSocket()
+{
+	StopHeartbeat();
+
+	if (!WebSocket.IsValid())
+	{
+		return;
+	}
+
+	WebSocket->OnConnected().Clear();
+	WebSocket->OnConnectionError().Clear();
+	WebSocket->OnClosed().Clear();
+	WebSocket->OnMessage().Clear();
+	WebSocket.Reset();
+}
+
+void UDMGameServerSubsystem::SendPendingRequest(FDMGameServerPendingRequest& Request)
+{
+	if (!IsConnected())
+	{
+		return;
+	}
+
+	if (Request.ResponseType > 0 && Request.Callback.IsBound())
+	{
+		PendingResponseCallbacks.Add(Request.ResponseType, Request);
+	}
+
+	SendProtocolMessage(Request.RequestProtocolName, Request.RequestType, Request.PayloadJson);
+	DM_LOG(this, LogTemp, Log, TEXT("Protocol request sent. request=%s, type=%d, response=%s"),
+		*Request.RequestProtocolName.ToString(),
+		Request.RequestType,
+		*Request.ResponseProtocolName.ToString());
+}
+
+void UDMGameServerSubsystem::FlushPendingRequests()
+{
+	if (!IsConnected() || PendingRequests.IsEmpty())
+	{
+		return;
+	}
+
+	TArray<FDMGameServerPendingRequest> RequestsToSend = MoveTemp(PendingRequests);
+	PendingRequests.Reset();
+	for (FDMGameServerPendingRequest& Request : RequestsToSend)
+	{
+		SendPendingRequest(Request);
+	}
+
+	DM_LOG(this, LogTemp, Log, TEXT("Pending protocol requests flushed: Count=%d"), RequestsToSend.Num());
+}
+
+void UDMGameServerSubsystem::FailPendingRequests(const int32 ResponseCode, const FString& Reason)
+{
+	for (FDMGameServerPendingRequest& Request : PendingRequests)
+	{
+		Request.Callback.ExecuteIfBound(false, ResponseCode, Reason);
+	}
+	PendingRequests.Reset();
+
+	for (TPair<int32, FDMGameServerPendingRequest>& Pair : PendingResponseCallbacks)
+	{
+		Pair.Value.Callback.ExecuteIfBound(false, ResponseCode, Reason);
+	}
+	PendingResponseCallbacks.Reset();
+}
+
+void UDMGameServerSubsystem::HandleServerMessage(const FString& Message)
+{
+	TSharedPtr<FJsonObject> RootObject;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Message);
+	if (!FJsonSerializer::Deserialize(Reader, RootObject) || !RootObject.IsValid())
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("HandleServerMessage failed: invalid JSON."));
+		return;
+	}
+
+	double TypeNumber = 0.0;
+	if (!RootObject->TryGetNumberField(TEXT("type"), TypeNumber))
+	{
+		DM_LOG(this, LogTemp, Warning, TEXT("HandleServerMessage failed: missing protocol type."));
+		return;
+	}
+
+	const int32 Type = static_cast<int32>(TypeNumber);
+	if (Type == ProtocolBasePong)
+	{
+		DM_LOG(this, LogTemp, Log, TEXT("Heartbeat pong received."));
+		return;
+	}
+
+	TSharedPtr<FJsonObject> PayloadObject;
+	const TSharedPtr<FJsonObject>* PayloadObjectPtr = nullptr;
+	if (RootObject->TryGetObjectField(TEXT("payload"), PayloadObjectPtr) && PayloadObjectPtr)
+	{
+		PayloadObject = *PayloadObjectPtr;
+	}
+	if (!TryExecuteProtocolCallback(Type, Message, PayloadObject))
+	{
+		DM_LOG(this, LogTemp, Log, TEXT("HandleServerMessage: no callback for Type=%d"), Type);
+	}
+}
+
+bool UDMGameServerSubsystem::TryExecuteProtocolCallback(const int32 Type, const FString& Message, const TSharedPtr<FJsonObject>& PayloadObject)
+{
+	FDMGameServerPendingRequest* Request = PendingResponseCallbacks.Find(Type);
+	if (!Request)
+	{
+		return false;
+	}
+
+	bool bSucceeded = true;
+	int32 ResponseCode = Type;
+	if (PayloadObject.IsValid())
+	{
+		PayloadObject->TryGetBoolField(TEXT("success"), bSucceeded);
+		if (!bSucceeded)
 		{
-			(void)RequestPtr;
-
-			UDMGameServerSubsystem* Subsystem = WeakThis.Get();
-			if (!Subsystem)
+			double ErrorCodeNumber = ResponseCode;
+			if (PayloadObject->TryGetNumberField(TEXT("errorCode"), ErrorCodeNumber))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("[DMGameServerSubsystem][SendRequest] Response ignored because subsystem is no longer valid. Verb=%s, Path=%s, Url=%s"),
-					*NormalizedVerb, *Path, *ResolvedUrl);
-				return;
+				ResponseCode = static_cast<int32>(ErrorCodeNumber);
 			}
-
-			// Collapse Unreal HTTP completion state into one gameplay-facing success flag for Blueprint and TS callers.
-			const int32 ResponseCode = Response.IsValid() ? Response->GetResponseCode() : 0;
-			const FString ResponseBody = Response.IsValid() ? Response->GetContentAsString() : FString();
-			const bool bRequestSucceeded = bSucceeded && Response.IsValid() && ResponseCode >= 200 && ResponseCode < 300;
-
-			if (bRequestSucceeded)
-			{
-				DM_LOG(Subsystem, LogTemp, Log, TEXT("SendRequest end: Verb=%s, Path=%s, Url=%s, Succeeded=true, ResponseCode=%d, ResponseBodyLength=%d"),
-					*NormalizedVerb, *Path, *ResolvedUrl, ResponseCode, ResponseBody.Len());
-			}
-			else
-			{
-				DM_LOG(Subsystem, LogTemp, Warning, TEXT("SendRequest end: Verb=%s, Path=%s, Url=%s, Succeeded=false, ResponseCode=%d, ResponseBodyLength=%d"),
-					*NormalizedVerb, *Path, *ResolvedUrl, ResponseCode, ResponseBody.Len());
-			}
-
-			Callback.ExecuteIfBound(bRequestSucceeded, ResponseCode, ResponseBody);
-		});
-
-	if (!Request->ProcessRequest())
-	{
-		DM_LOG(this, LogTemp, Warning, TEXT("SendRequest failed to start: Verb=%s, Path=%s, Url=%s"), *NormalizedVerb, *Path, *ResolvedUrl);
-		Callback.ExecuteIfBound(false, 0, TEXT(""));
+		}
 	}
+
+	FDMGameServerResponseDelegate Callback = Request->Callback;
+	PendingResponseCallbacks.Remove(Type);
+	Callback.ExecuteIfBound(bSucceeded, ResponseCode, Message);
+	return true;
 }
 
-void UDMGameServerSubsystem::Login(const FString& AccountId, const FString& PlayerName, FDMGameServerResponseDelegate Callback)
+void UDMGameServerSubsystem::StartHeartbeat()
 {
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("accountId"), AccountId);
-	Fields.Add(TEXT("playerName"), PlayerName);
-	SendRequest(TEXT("POST"), TEXT("/accounts/login"), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::UpdateAccountName(const FString& AccountId, const FString& PlayerName, FDMGameServerResponseDelegate Callback)
-{
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("playerName"), PlayerName);
-	SendRequest(TEXT("PATCH"), FString::Printf(TEXT("/accounts/%s"), *AccountId), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::GetLobby(FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("GET"), TEXT("/lobby"), TEXT(""), Callback);
-}
-
-void UDMGameServerSubsystem::EnterLobby(const FString& AccountId, FDMGameServerResponseDelegate Callback)
-{
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("accountId"), AccountId);
-	SendRequest(TEXT("POST"), TEXT("/lobby/enter"), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::LeaveLobby(const FString& AccountId, FDMGameServerResponseDelegate Callback)
-{
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("accountId"), AccountId);
-	SendRequest(TEXT("POST"), TEXT("/lobby/leave"), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::GetRooms(FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("GET"), TEXT("/rooms"), TEXT(""), Callback);
-}
-
-void UDMGameServerSubsystem::GetRoom(const FString& RoomId, FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("GET"), FString::Printf(TEXT("/rooms/%s"), *RoomId), TEXT(""), Callback);
-}
-
-void UDMGameServerSubsystem::CreateRoom(const FString& HostAccountId, const FString& RoomName, const int32 MaxPlayers, FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("POST"), TEXT("/rooms"), BuildCreateRoomJsonString(HostAccountId, RoomName, MaxPlayers), Callback);
-}
-
-void UDMGameServerSubsystem::JoinRoom(const FString& RoomId, const FString& AccountId, FDMGameServerResponseDelegate Callback)
-{
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("accountId"), AccountId);
-	SendRequest(TEXT("POST"), FString::Printf(TEXT("/rooms/%s/join"), *RoomId), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::LeaveRoom(const FString& RoomId, const FString& AccountId, FDMGameServerResponseDelegate Callback)
-{
-	TMap<FString, FString> Fields;
-	Fields.Add(TEXT("accountId"), AccountId);
-	SendRequest(TEXT("POST"), FString::Printf(TEXT("/rooms/%s/leave"), *RoomId), BuildJsonString(Fields), Callback);
-}
-
-void UDMGameServerSubsystem::UpdateRoomMemberReady(const FString& RoomId, const FString& AccountId, const bool bIsReady, FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("PATCH"), FString::Printf(TEXT("/rooms/%s/members/%s"), *RoomId, *AccountId), BuildReadyJsonString(bIsReady), Callback);
-}
-
-void UDMGameServerSubsystem::StartGame(const FString& RoomId, FDMGameServerResponseDelegate Callback)
-{
-	SendRequest(TEXT("POST"), TEXT("/game/start"), BuildStartGameJsonString(RoomId), Callback);
-}
-
-void UDMGameServerSubsystem::StartWatchingRoom(const FString& RoomId, const float PollIntervalSeconds)
-{
-	// Watching is single-room state in this subsystem, so switching targets always resets the previous timer and cache.
-	StopWatchingRoom();
-
-	WatchedRoomId = RoomId.TrimStartAndEnd();
-	if (WatchedRoomId.IsEmpty())
+	UWorld* World = GetWorld();
+	if (!World)
 	{
-		DM_LOG(this, LogTemp, Warning, TEXT("StartWatchingRoom skipped: RoomId is empty."));
+		DM_LOG(this, LogTemp, Warning, TEXT("StartHeartbeat skipped: World is invalid."));
 		return;
 	}
 
-	LastWatchedRoomResponseBody.Empty();
-	bWatchRoomRequestPending = false;
-	DM_LOG(this, LogTemp, Log, TEXT("StartWatchingRoom: RoomId=%s, PollIntervalSeconds=%.2f"), *WatchedRoomId, PollIntervalSeconds);
-
-	// Poll once immediately so UI listeners do not wait for the first timer tick.
-	PollWatchedRoom();
-
-	if (UWorld* World = GetWorld())
-	{
-		// Keep a small lower bound to avoid hammering the local test server with near-zero intervals.
-		const float ResolvedPollIntervalSeconds = FMath::Max(PollIntervalSeconds, 0.2f);
-		World->GetTimerManager().SetTimer(WatchRoomTimerHandle, this, &UDMGameServerSubsystem::PollWatchedRoom, ResolvedPollIntervalSeconds, true);
-		DM_LOG(this, LogTemp, Log, TEXT("StartWatchingRoom timer started: RoomId=%s, ResolvedPollIntervalSeconds=%.2f"),
-			*WatchedRoomId, ResolvedPollIntervalSeconds);
-	}
-	else
-	{
-		DM_LOG(this, LogTemp, Warning, TEXT("StartWatchingRoom timer skipped: World is invalid. RoomId=%s"), *WatchedRoomId);
-	}
+	const float ResolvedIntervalSeconds = FMath::Max(HeartbeatIntervalSeconds, 1.0f);
+	World->GetTimerManager().ClearTimer(HeartbeatTimerHandle);
+	World->GetTimerManager().SetTimer(HeartbeatTimerHandle, this, &UDMGameServerSubsystem::HandleHeartbeatTick, ResolvedIntervalSeconds, true);
+	DM_LOG(this, LogTemp, Log, TEXT("Heartbeat started. interval=%.2fs"), ResolvedIntervalSeconds);
 }
 
-void UDMGameServerSubsystem::StopWatchingRoom()
+void UDMGameServerSubsystem::StopHeartbeat()
 {
-	const FString PreviousWatchedRoomId = WatchedRoomId;
-
-	if (UWorld* World = GetWorld())
+	UWorld* World = GetWorld();
+	if (!World)
 	{
-		World->GetTimerManager().ClearTimer(WatchRoomTimerHandle);
-	}
-
-	WatchedRoomId.Empty();
-	LastWatchedRoomResponseBody.Empty();
-	bWatchRoomRequestPending = false;
-	DM_LOG(this, LogTemp, Log, TEXT("StopWatchingRoom: PreviousRoomId=%s"), *PreviousWatchedRoomId);
-}
-
-void UDMGameServerSubsystem::PollWatchedRoom()
-{
-	if (WatchedRoomId.IsEmpty() || bWatchRoomRequestPending)
-	{
-		DM_LOG(this, LogTemp, Log, TEXT("PollWatchedRoom skipped: RoomId=%s, RequestPending=%s"),
-			*WatchedRoomId, bWatchRoomRequestPending ? TEXT("true") : TEXT("false"));
 		return;
 	}
 
-	// Gate re-entry so a slow HTTP response cannot stack multiple overlapping room polls.
-	bWatchRoomRequestPending = true;
-	DM_LOG(this, LogTemp, Log, TEXT("PollWatchedRoom begin: RoomId=%s"), *WatchedRoomId);
-
-	FDMGameServerResponseDelegate Callback;
-	Callback.BindDynamic(this, &UDMGameServerSubsystem::HandleWatchedRoomResponse);
-	GetRoom(WatchedRoomId, Callback);
+	if (World->GetTimerManager().IsTimerActive(HeartbeatTimerHandle))
+	{
+		World->GetTimerManager().ClearTimer(HeartbeatTimerHandle);
+		DM_LOG(this, LogTemp, Log, TEXT("Heartbeat stopped."));
+	}
 }
 
-void UDMGameServerSubsystem::HandleWatchedRoomResponse(bool bSucceeded, int32 ResponseCode, const FString& ResponseBody)
+void UDMGameServerSubsystem::HandleHeartbeatTick()
 {
-	(void)ResponseCode;
-	bWatchRoomRequestPending = false;
-
-	// Ignore stale responses after StopWatchingRoom or any failed poll; callers only react to fresh successful snapshots.
-	if (WatchedRoomId.IsEmpty() || !bSucceeded)
+	if (!IsConnected())
 	{
-		DM_LOG(this, LogTemp, Warning, TEXT("HandleWatchedRoomResponse ignored: RoomId=%s, Succeeded=%s, ResponseCode=%d"),
-			*WatchedRoomId, bSucceeded ? TEXT("true") : TEXT("false"), ResponseCode);
+		StopHeartbeat();
+		DM_LOG(this, LogTemp, Warning, TEXT("Heartbeat stopped: socket is not connected."));
 		return;
 	}
 
-	// Broadcast only when the payload changes so polling can drive UI refresh without duplicate work every interval.
-	if (ResponseBody == LastWatchedRoomResponseBody)
-	{
-		DM_LOG(this, LogTemp, Log, TEXT("HandleWatchedRoomResponse skipped broadcast: RoomId=%s, ResponseUnchanged=true"), *WatchedRoomId);
-		return;
-	}
-
-	LastWatchedRoomResponseBody = ResponseBody;
-	DM_LOG(this, LogTemp, Log, TEXT("HandleWatchedRoomResponse broadcast: RoomId=%s, ResponseBodyLength=%d"),
-		*WatchedRoomId, ResponseBody.Len());
-	OnWatchedRoomUpdated.Broadcast(WatchedRoomId, ResponseBody);
-}
-
-FString UDMGameServerSubsystem::BuildUrl(const FString& Path) const
-{
-	if (Path.StartsWith(TEXT("http://")) || Path.StartsWith(TEXT("https://")))
-	{
-		return Path;
-	}
-
-	const FString NormalizedPath = Path.StartsWith(TEXT("/")) ? Path : FString::Printf(TEXT("/%s"), *Path);
-	return ServerBaseUrl + NormalizedPath;
-}
-
-FString UDMGameServerSubsystem::BuildJsonString(const TMap<FString, FString>& StringFields)
-{
-	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
-	for (const TPair<FString, FString>& Field : StringFields)
-	{
-		JsonObject->SetStringField(Field.Key, Field.Value);
-	}
-
-	FString Body;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
-	FJsonSerializer::Serialize(JsonObject, Writer);
-	return Body;
-}
-
-FString UDMGameServerSubsystem::BuildCreateRoomJsonString(const FString& HostAccountId, const FString& RoomName, const int32 MaxPlayers)
-{
-	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
-	JsonObject->SetStringField(TEXT("hostAccountId"), HostAccountId);
-	JsonObject->SetStringField(TEXT("roomName"), RoomName);
-	JsonObject->SetNumberField(TEXT("maxPlayers"), MaxPlayers);
-
-	FString Body;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
-	FJsonSerializer::Serialize(JsonObject, Writer);
-	return Body;
-}
-
-FString UDMGameServerSubsystem::BuildReadyJsonString(const bool bIsReady)
-{
-	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
-	JsonObject->SetBoolField(TEXT("bIsReady"), bIsReady);
-
-	FString Body;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
-	FJsonSerializer::Serialize(JsonObject, Writer);
-	return Body;
-}
-
-FString UDMGameServerSubsystem::BuildStartGameJsonString(const FString& RoomId)
-{
-	TSharedRef<FJsonObject> JsonObject = MakeShared<FJsonObject>();
-	JsonObject->SetStringField(TEXT("roomId"), RoomId);
-
-	FString Body;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&Body);
-	FJsonSerializer::Serialize(JsonObject, Writer);
-	return Body;
+	SendPing();
+	DM_LOG(this, LogTemp, Log, TEXT("Heartbeat ping sent."));
 }

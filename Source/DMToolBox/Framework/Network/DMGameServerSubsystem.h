@@ -2,10 +2,26 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "TimerManager.h"
 #include "DMGameServerSubsystem.generated.h"
 
+class IWebSocket;
+
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FDMGameServerResponseDelegate, bool, bSucceeded, int32, ResponseCode, const FString&, ResponseBody);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDMGameServerRoomUpdatedDelegate, const FString&, RoomId, const FString&, ResponseBody);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDMGameServerConnectedDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDMGameServerDisconnectedDelegate, const FString&, Reason);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDMGameServerMessageDelegate, const FString&, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDMGameServerErrorDelegate, const FString&, Error);
+
+struct FDMGameServerPendingRequest
+{
+	FName RequestProtocolName;
+	int32 RequestType = 0;
+	FString PayloadJson;
+	FName ResponseProtocolName;
+	int32 ResponseType = 0;
+	FDMGameServerResponseDelegate Callback;
+};
 
 UCLASS()
 class DMTOOLBOX_API UDMGameServerSubsystem : public UGameInstanceSubsystem
@@ -16,81 +32,65 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
-	UPROPERTY(BlueprintAssignable, Category = "DMToolBox|GameServer|Room")
-	FDMGameServerRoomUpdatedDelegate OnWatchedRoomUpdated;
+	UPROPERTY(BlueprintAssignable, Category = "DMToolBox|GameServer")
+	FDMGameServerConnectedDelegate OnGameServerConnected;
+
+	UPROPERTY(BlueprintAssignable, Category = "DMToolBox|GameServer")
+	FDMGameServerDisconnectedDelegate OnGameServerDisconnected;
+
+	UPROPERTY(BlueprintAssignable, Category = "DMToolBox|GameServer")
+	FDMGameServerMessageDelegate OnGameServerMessage;
+
+	UPROPERTY(BlueprintAssignable, Category = "DMToolBox|GameServer")
+	FDMGameServerErrorDelegate OnGameServerError;
 
 	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
-	void SetServerBaseUrl(const FString& InServerBaseUrl);
+	void SetServerUrl(const FString& InServerUrl);
 
 	UFUNCTION(BlueprintPure, Category = "DMToolBox|GameServer")
-	FString GetServerBaseUrl() const { return ServerBaseUrl; }
+	FString GetServerUrl() const { return ServerUrl; }
 
 	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
-	void SendRequest(const FString& Verb, const FString& Path, const FString& Body, FDMGameServerResponseDelegate Callback);
+	void Connect();
 
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Account")
-	void Login(const FString& AccountId, const FString& PlayerName, FDMGameServerResponseDelegate Callback);
+	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
+	void Disconnect();
 
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Account")
-	void UpdateAccountName(const FString& AccountId, const FString& PlayerName, FDMGameServerResponseDelegate Callback);
+	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
+	void SendTextMessage(const FString& Message);
 
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Lobby")
-	void GetLobby(FDMGameServerResponseDelegate Callback);
+	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
+	void SendPing();
 
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Lobby")
-	void EnterLobby(const FString& AccountId, FDMGameServerResponseDelegate Callback);
+	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer")
+	void SendProtocolRequest(FName RequestProtocolName, int32 RequestType, const FString& PayloadJson, FName ResponseProtocolName, int32 ResponseType, FDMGameServerResponseDelegate Callback);
 
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Lobby")
-	void LeaveLobby(const FString& AccountId, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void GetRooms(FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void GetRoom(const FString& RoomId, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void CreateRoom(const FString& HostAccountId, const FString& RoomName, int32 MaxPlayers, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void JoinRoom(const FString& RoomId, const FString& AccountId, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void LeaveRoom(const FString& RoomId, const FString& AccountId, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void UpdateRoomMemberReady(const FString& RoomId, const FString& AccountId, bool bIsReady, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Game")
-	void StartGame(const FString& RoomId, FDMGameServerResponseDelegate Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void StartWatchingRoom(const FString& RoomId, float PollIntervalSeconds = 1.0f);
-
-	UFUNCTION(BlueprintCallable, Category = "DMToolBox|GameServer|Room")
-	void StopWatchingRoom();
+	UFUNCTION(BlueprintPure, Category = "DMToolBox|GameServer")
+	bool IsConnected() const;
 
 private:
-	FString BuildUrl(const FString& Path) const;
-	static FString BuildJsonString(const TMap<FString, FString>& StringFields);
-	static FString BuildCreateRoomJsonString(const FString& HostAccountId, const FString& RoomName, int32 MaxPlayers);
-	static FString BuildReadyJsonString(bool bIsReady);
-	static FString BuildStartGameJsonString(const FString& RoomId);
-
-	void PollWatchedRoom();
-
-	UFUNCTION()
-	void HandleWatchedRoomResponse(bool bSucceeded, int32 ResponseCode, const FString& ResponseBody);
-
-	UPROPERTY()
-	FString ServerBaseUrl = TEXT("http://127.0.0.1:7788");
-
-	UPROPERTY()
-	FString WatchedRoomId;
+	static FString NormalizeServerUrl(const FString& InServerUrl);
+	void SendProtocolMessage(FName ProtocolName, int32 Type, const FString& PayloadJson);
+	void BindSocketEvents();
+	void ClearSocket();
+	void SendPendingRequest(FDMGameServerPendingRequest& Request);
+	void FlushPendingRequests();
+	void FailPendingRequests(int32 ResponseCode, const FString& Reason);
+	void HandleServerMessage(const FString& Message);
+	bool TryExecuteProtocolCallback(int32 Type, const FString& Message, const TSharedPtr<class FJsonObject>& PayloadObject);
+	void StartHeartbeat();
+	void StopHeartbeat();
+	void HandleHeartbeatTick();
 
 	UPROPERTY()
-	FString LastWatchedRoomResponseBody;
+	FString ServerUrl = TEXT("ws://127.0.0.1:7788/ws");
 
-	FTimerHandle WatchRoomTimerHandle;
-	bool bWatchRoomRequestPending = false;
+	UPROPERTY(EditDefaultsOnly, Category = "DMToolBox|GameServer")
+	float HeartbeatIntervalSeconds = 30.0f;
+
+	TSharedPtr<IWebSocket> WebSocket;
+	TArray<FDMGameServerPendingRequest> PendingRequests;
+	TMap<int32, FDMGameServerPendingRequest> PendingResponseCallbacks;
+	FTimerHandle HeartbeatTimerHandle;
+	bool bIsConnecting = false;
 };

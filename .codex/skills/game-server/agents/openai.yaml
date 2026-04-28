@@ -1,0 +1,4 @@
+interface:
+  display_name: "GameServer"
+  short_description: "Implement GameServer TypeScript with Logger-based diagnostics."
+  default_prompt: "Use $game-server to implement or refactor Plugins/DMToolBox/GameServer code."

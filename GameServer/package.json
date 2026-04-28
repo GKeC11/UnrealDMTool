@@ -2,11 +2,11 @@
   "name": "nooutsiders-game-server",
   "private": true,
   "version": "0.1.0",
-  "description": "Lightweight account, lobby, and room data server for NoOutsiders.",
-  "main": "dist/server.js",
+  "description": "WebSocket GameServer for NoOutsiders.",
+  "main": "dist/Server.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "npm run build && node dist/server.js",
+    "start": "npm run build && node dist/Server.js",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

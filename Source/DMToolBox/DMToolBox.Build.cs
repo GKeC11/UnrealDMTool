@@ -33,9 +33,9 @@ public class DMToolBox : ModuleRules
 				"Puerts",
 				"JsEnv",
 				"GameplayMessageRuntime",
-				"HTTP",
 				"Json",
 				"JsonUtilities",
+				"WebSockets",
 			}
 		);
 	}
