@@ -73,6 +73,8 @@ private:
 	void SendProtocolMessage(FName ProtocolName, int32 Type, const FString& PayloadJson);
 	void BindSocketEvents();
 	void ClearSocket();
+	void ClearSocket(TSharedPtr<IWebSocket> SocketToClear);
+	void ScheduleClearSocket(TSharedPtr<IWebSocket> SocketToClear);
 	void SendPendingRequest(FDMGameServerPendingRequest& Request);
 	void FlushPendingRequests();
 	void FailPendingRequests(int32 ResponseCode, const FString& Reason);

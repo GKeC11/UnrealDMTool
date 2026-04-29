@@ -1,4 +1,3 @@
-import crypto = require("node:crypto");
 import childProcess = require("node:child_process");
 import fs = require("node:fs");
 import os = require("node:os");
@@ -9,7 +8,6 @@ export type DedicatedServerSession = {
     roomId: string;
     address: string;
     port: number;
-    ticket: string;
     startedAt: string;
     launchBatPath: string;
 };
@@ -37,7 +35,6 @@ export class DedicatedServerManager {
             roomId,
             address: `${host}:${port}`,
             port,
-            ticket: crypto.randomBytes(16).toString("hex"),
             startedAt: new Date().toISOString(),
             launchBatPath,
         };

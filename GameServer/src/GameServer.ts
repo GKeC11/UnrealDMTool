@@ -41,7 +41,12 @@ export class GameServer {
                 this.logger.info(`Connection cleanup callback. id=${ctx.id}, userId=${ctx.userId || ""}`);
             },
         });
-        this.accountModule = new AccountModule(this.router, (ctx, type, payload) => this.sendToClient(ctx, type, payload));
+        this.accountModule = new AccountModule(
+            this.router,
+            (ctx, type, payload) => this.sendToClient(ctx, type, payload),
+            undefined,
+            () => this.connections.getAll()
+        );
         this.roomModule = new RoomModule(
             this.router,
             (ctx, type, payload) => this.sendToClient(ctx, type, payload),

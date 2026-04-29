@@ -237,10 +237,10 @@ export enum ProtocolRoom {
   - 内部状态：`Map<string, Room>`
   - `createRoom(ownerId, params)` → 调用 `DedicatedServerManager.startDS()` 获取地址 → 生成 `roomId` → 回复 `ROOM_CREATED (302)`
   - `joinRoom(userId, roomId)` → 验证容量 → 加入玩家列表 → 广播 `ROOM_UPDATE (304)`
-  - `startGame(roomId, requesterId)` → 校验房主 → 通知双方 `GAME_STARTING (306)`，携带 DS 地址与 ticket
+  - `startGame(roomId, requesterId)` → 校验房主 → 通知双方 `GAME_STARTING (306)`，携带 DS 地址与 Token
 - **DedicatedServerManager**：
   - 封装 DS 进程生命周期，初期使用 `child_process.spawn` 启动 UE5 服务器
-  - 返回 `{ address: string, port: number, ticket: string }`
+  - 返回 `{ address: string, port: number }`
   - 连接关闭或房间销毁时停止对应 DS
   - 接口设计便于后续替换为云端 API / Kubernetes
 
@@ -276,9 +276,9 @@ export enum ProtocolRoom {
 1. 客户端 A 发送 `{ type: 301, payload: { map: "DeathMatch", maxPlayers: 4 } }`。
 2. GameServer → MessageRouter → `RoomModule.onCreateRoom(ctxA, payload)`。
 3. `RoomModule` 调用 `DedicatedServerManager.startDS()`。
-4. `DedicatedServerManager` 通过 `child_process.spawn` 启动 UE5 DS 可执行文件，等待 DS 就绪后获得 `{ address, port }`，生成一次性 `ticket`。
-5. `RoomModule` 创建房间对象（生成唯一 roomId，记录房主、地图、最大人数等信息），将 DS 地址和 ticket 关联。
-6. 通过 `sendToClient(ctxA, 302, { roomId, address: "192.168.1.100:7777", ticket })` 回复房主，告知房间已创建。
+4. `DedicatedServerManager` 通过 `child_process.spawn` 启动 UE5 DS 可执行文件，等待 DS 就绪后获得 `{ address, port }`。
+5. `RoomModule` 创建房间对象（生成唯一 roomId，记录房主、地图、最大人数等信息），将 DS 地址与房间关联。
+6. 通过 `sendToClient(ctxA, 302, { roomId, address: "192.168.1.100:7777" })` 回复房主，告知房间已创建。
 
 ### 阶段四：加入房间（由客户端 B 发起）
 1. 客户端 B 获得 roomId（例如通过大厅的房间列表，或房主分享），发送 `{ type: 303, payload: { roomId } }`。
@@ -290,11 +290,11 @@ export enum ProtocolRoom {
 1. 客户端 A 在房间满员或准备就绪后，发送 `{ type: 305, payload: { roomId } }`。
 2. Router 分发至 `RoomModule.onStartGame(ctxA, payload)`。
 3. RoomModule 检查请求者是否为房主，确认房间状态允许开始，更新房间状态为 `playing`。
-4. 向房间内所有玩家（A 和 B）分别发送 `GAME_STARTING (306)`，payload 中携带 `{ address: "192.168.1.100:7777", ticket: "abc123" }`，确保双方拿到连接 DS 的必要信息。
+4. 向房间内所有玩家（A 和 B）分别发送 `GAME_STARTING (306)`，payload 中携带 `{ address: "192.168.1.100:7777", token: "<AuthToken>" }`，确保双方拿到连接 DS 的必要信息。
 
 ### 阶段六：进入 DS 战斗
-1. 客户端 A、B 收到 `GAME_STARTING` 后，各自调用本地 `ClientTravel` 或等效方法，携带 ticket 直连 DS 地址。
-2. DS 验证 ticket 有效性后，将双方纳入游戏会话，游戏同步正式开始。
+1. 客户端 A、B 收到 `GAME_STARTING` 后，各自调用本地 `ClientTravel` 或等效方法，携带 Token 直连 DS 地址。
+2. DS 验证 Token 有效性后，将双方纳入游戏会话，游戏同步正式开始。
 3. WebSocket 连接仍可保持用于好友聊天等非战斗功能，但战斗数据完全走 DS 协议。
 
 ---

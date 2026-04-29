@@ -5,6 +5,7 @@ import { Logger } from "../../Utils/Logger";
 import { AuthService, LoginResult } from "./AuthService";
 
 type SendToClient = (ctx: ConnectionContext, type: number, payload?: Record<string, unknown>) => void;
+type GetConnections = () => ConnectionContext[];
 
 type AuthRequestPayload = {
     accountId?: string;
@@ -15,19 +16,26 @@ type TokenRefreshPayload = {
     token?: string;
 };
 
+type TokenVerifyPayload = {
+    token?: string;
+};
+
 export class AccountModule {
     private readonly logger = new Logger("AccountModule");
     private readonly authService: AuthService;
     private readonly sendToClient: SendToClient;
+    private readonly getConnections: GetConnections;
     private readonly currentRoomIds = new Map<string, string>();
 
-    public constructor(router: MessageRouter, sendToClient: SendToClient, authService = new AuthService()) {
+    public constructor(router: MessageRouter, sendToClient: SendToClient, authService = new AuthService(), getConnections: GetConnections = () => []) {
         this.authService = authService;
         this.sendToClient = sendToClient;
+        this.getConnections = getConnections;
 
         router.register(ProtocolAccount.AUTH_REQUEST, (ctx, payload) => this.handleAuthRequest(ctx, payload));
         router.register(ProtocolAccount.TOKEN_REFRESH, (ctx, payload) => this.handleTokenRefresh(ctx, payload));
         router.register(ProtocolAccount.CURRENT_ROOM_REQUEST, (ctx) => this.handleCurrentRoomRequest(ctx));
+        router.register(ProtocolAccount.TOKEN_VERIFY_REQUEST, (ctx, payload) => this.handleTokenVerify(ctx, payload));
     }
 
     public setCurrentRoomId(accountId: string, roomId: string): void {
@@ -65,6 +73,12 @@ export class AccountModule {
     private handleAuthRequest(ctx: ConnectionContext, payload: unknown): void {
         const request = asRecord<AuthRequestPayload>(payload);
         try {
+            if (ctx.isAuthenticated) {
+                throw new Error("connection is already authenticated");
+            }
+
+            const accountId = normalizeString(request.accountId);
+            this.assertAccountNotLoggedIn(accountId);
             const result = this.authService.login(request.accountId, request.playerName);
             this.applyLoginContext(ctx, result);
             this.logger.info(`Account authenticated. connection=${ctx.id}, userId=${ctx.userId}, registered=${result.isRegistered}`);
@@ -85,6 +99,8 @@ export class AccountModule {
     private handleTokenRefresh(ctx: ConnectionContext, payload: unknown): void {
         const request = asRecord<TokenRefreshPayload>(payload);
         try {
+            const tokenPayload = this.authService.verifyToken(request.token);
+            this.assertAccountNotLoggedIn(tokenPayload.accountId, ctx);
             const result = this.authService.refreshToken(request.token);
             this.applyLoginContext(ctx, result);
             this.logger.info(`Account token refreshed. connection=${ctx.id}, userId=${ctx.userId}`);
@@ -93,6 +109,32 @@ export class AccountModule {
             const message = error instanceof Error ? error.message : "Token refresh failed";
             this.logger.warn(`Account token refresh failed. connection=${ctx.id}, reason=${message}`);
             this.sendToClient(ctx, ProtocolAccount.AUTH_RESPONSE, {
+                success: false,
+                errorCode: 401,
+                message,
+            });
+        }
+    }
+
+    private handleTokenVerify(ctx: ConnectionContext, payload: unknown): void {
+        const request = asRecord<TokenVerifyPayload>(payload);
+        try {
+            const tokenPayload = this.authService.verifyToken(request.token);
+            const account = this.authService.getAccount(tokenPayload.accountId);
+            if (!account) {
+                throw new Error("account does not exist");
+            }
+
+            this.sendToClient(ctx, ProtocolAccount.TOKEN_VERIFY_RESPONSE, {
+                success: true,
+                ok: true,
+                account: this.authService.toPublicAccount(account),
+            });
+            this.logger.debug(`Account token verified. connection=${ctx.id}, accountId=${account.accountId}`);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Token verify failed";
+            this.logger.warn(`Account token verify failed. connection=${ctx.id}, reason=${message}`);
+            this.sendToClient(ctx, ProtocolAccount.TOKEN_VERIFY_RESPONSE, {
                 success: false,
                 errorCode: 401,
                 message,
@@ -119,11 +161,27 @@ export class AccountModule {
         }
     }
 
+    private assertAccountNotLoggedIn(accountId: string, allowedCtx?: ConnectionContext): void {
+        if (!accountId) {
+            return;
+        }
+
+        const loggedInConnection = this.getConnections().find((ctx) =>
+            ctx.isAuthenticated &&
+            ctx.userId === accountId &&
+            ctx.id !== allowedCtx?.id
+        );
+        if (loggedInConnection) {
+            throw new Error("account is already authenticated");
+        }
+    }
+
     private applyLoginContext(ctx: ConnectionContext, result: LoginResult): void {
         ctx.userId = result.account.accountId;
         ctx.isAuthenticated = true;
-        // 后续房间和大厅模块可以从连接上下文读取账号公开信息，避免重复解析 Token。
+        // Keep the verified account data and token available for room-to-DS handoff.
         ctx.sessionData.account = this.authService.toPublicAccount(result.account);
+        ctx.sessionData.authToken = result.token;
     }
 
     private sendAuthResponse(ctx: ConnectionContext, result: LoginResult): void {

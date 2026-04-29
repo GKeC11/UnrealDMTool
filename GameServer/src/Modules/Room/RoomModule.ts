@@ -33,7 +33,6 @@ type Room = {
     Members: RoomMember[];
     Status: RoomStatus;
     ServerAddress: string;
-    Ticket?: string;
     CreatedAt: string;
     UpdatedAt: string;
 };
@@ -194,7 +193,6 @@ export class RoomModule {
         const session = this.dedicatedServerManager.startDS(room.RoomId);
         room.Status = "playing";
         room.ServerAddress = session.address;
-        room.Ticket = session.ticket;
         room.UpdatedAt = new Date().toISOString();
 
         this.logger.info(`Room game starting. roomId=${room.RoomId}, host=${ctx.userId}, address=${session.address}`);
@@ -267,17 +265,17 @@ export class RoomModule {
     }
 
     private broadcastGameStarting(room: Room, session: DedicatedServerSession): void {
-        const payload = {
-            success: true,
-            ok: true,
-            data: {
-                serverAddress: session.address,
-                ticket: session.ticket,
-                room: this.toPublicRoom(room),
-            },
-        };
-
         for (const ctx of this.getRoomConnections(room)) {
+            const payload = {
+                success: true,
+                ok: true,
+                data: {
+                    serverAddress: session.address,
+                    token: normalizeString(ctx.sessionData.authToken),
+                    room: this.toPublicRoom(room),
+                },
+            };
+
             this.sendToClient(ctx, ProtocolRoom.GAME_STARTING, payload);
         }
     }

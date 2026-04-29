@@ -31,6 +31,10 @@ export type GameServerTokenRefreshPayload = {
     token?: string;
 };
 
+export type GameServerTokenVerifyPayload = {
+    token?: string;
+};
+
 export type GameServerCurrentRoomPayload = GameServerResponsePayload<{
     roomId?: string;
 }>;
@@ -76,7 +80,7 @@ export type GameServerRoomIdPayload = {
 
 export type GameServerStartGamePayload = GameServerResponsePayload<{
     serverAddress?: string;
-    ticket?: string;
+    token?: string;
     room?: GameServerRoom;
 }>;
 

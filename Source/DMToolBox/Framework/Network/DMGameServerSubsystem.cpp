@@ -230,17 +230,19 @@ void UDMGameServerSubsystem::BindSocketEvents()
 
 	WebSocket->OnConnectionError().AddLambda([this](const FString& Error)
 	{
+		const TSharedPtr<IWebSocket> SocketToClear = WebSocket;
 		bIsConnecting = false;
 		StopHeartbeat();
 		const FString ErrorText = Error.IsEmpty() ? TEXT("GameServer WebSocket connection failed.") : Error;
 		DM_LOG(this, LogTemp, Error, TEXT("Connection error: ServerUrl=%s, Error=%s"), *ServerUrl, *ErrorText);
 		FailPendingRequests(0, ErrorText);
-		ClearSocket();
 		OnGameServerError.Broadcast(ErrorText);
+		ScheduleClearSocket(SocketToClear);
 	});
 
 	WebSocket->OnClosed().AddLambda([this](const int32 StatusCode, const FString& Reason, const bool bWasClean)
 	{
+		const TSharedPtr<IWebSocket> SocketToClear = WebSocket;
 		bIsConnecting = false;
 		StopHeartbeat();
 		DM_LOG(this, LogTemp, Log, TEXT("Closed: StatusCode=%d, Reason=%s, WasClean=%s"),
@@ -251,7 +253,7 @@ void UDMGameServerSubsystem::BindSocketEvents()
 		FailPendingRequests(StatusCode, Reason);
 
 		OnGameServerDisconnected.Broadcast(Reason);
-		ClearSocket();
+		ScheduleClearSocket(SocketToClear);
 	});
 
 	WebSocket->OnMessage().AddLambda([this](const FString& Message)
@@ -264,18 +266,55 @@ void UDMGameServerSubsystem::BindSocketEvents()
 
 void UDMGameServerSubsystem::ClearSocket()
 {
-	StopHeartbeat();
+	ClearSocket(WebSocket);
+}
 
-	if (!WebSocket.IsValid())
+void UDMGameServerSubsystem::ClearSocket(TSharedPtr<IWebSocket> SocketToClear)
+{
+	const bool bClearingCurrentSocket = SocketToClear == WebSocket;
+	if (bClearingCurrentSocket)
+	{
+		StopHeartbeat();
+	}
+
+	if (!SocketToClear.IsValid())
 	{
 		return;
 	}
 
-	WebSocket->OnConnected().Clear();
-	WebSocket->OnConnectionError().Clear();
-	WebSocket->OnClosed().Clear();
-	WebSocket->OnMessage().Clear();
-	WebSocket.Reset();
+	SocketToClear->OnConnected().Clear();
+	SocketToClear->OnConnectionError().Clear();
+	SocketToClear->OnClosed().Clear();
+	SocketToClear->OnMessage().Clear();
+	if (bClearingCurrentSocket)
+	{
+		WebSocket.Reset();
+	}
+}
+
+void UDMGameServerSubsystem::ScheduleClearSocket(TSharedPtr<IWebSocket> SocketToClear)
+{
+	if (!SocketToClear.IsValid())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		ClearSocket(SocketToClear);
+		return;
+	}
+
+	TWeakObjectPtr<UDMGameServerSubsystem> WeakThis(this);
+	FTimerDelegate ClearSocketDelegate = FTimerDelegate::CreateLambda([WeakThis, SocketToClear]()
+	{
+		if (UDMGameServerSubsystem* Subsystem = WeakThis.Get())
+		{
+			Subsystem->ClearSocket(SocketToClear);
+		}
+	});
+	World->GetTimerManager().SetTimerForNextTick(ClearSocketDelegate);
 }
 
 void UDMGameServerSubsystem::SendPendingRequest(FDMGameServerPendingRequest& Request)

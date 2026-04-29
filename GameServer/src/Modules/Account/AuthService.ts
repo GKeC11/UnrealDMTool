@@ -113,6 +113,10 @@ export class AuthService {
         return this.login(account.accountId, account.playerName);
     }
 
+    public getAccount(accountId: string): AccountRecord | undefined {
+        return this.state.accounts[accountId];
+    }
+
     public verifyToken(token: unknown): TokenPayload {
         const rawToken = normalizeString(token);
         const parts = rawToken.split(".");
