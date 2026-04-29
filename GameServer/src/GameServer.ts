@@ -45,7 +45,8 @@ export class GameServer {
         this.roomModule = new RoomModule(
             this.router,
             (ctx, type, payload) => this.sendToClient(ctx, type, payload),
-            () => this.connections.getAll()
+            () => this.connections.getAll(),
+            this.accountModule
         );
     }
 

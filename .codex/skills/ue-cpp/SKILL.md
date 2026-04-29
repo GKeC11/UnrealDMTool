@@ -14,6 +14,7 @@ Use this skill for Unreal Engine C++ work in this repository. Favor UE-native ex
 3. Decide whether the change is local-only, server-authoritative, replicated, or editor-only before writing behavior.
 4. Implement the feature in the correct runtime or editor module and keep dependencies one-way where possible.
 5. Add brief comments for non-obvious intent, lifecycle assumptions, or replication behavior.
+6. If the change affects dedicated-server startup, GameMode/GameState server authority flow, GameServer integration, or other packaged Server runtime behavior, remind the user in the final response to package/rebuild the Server.
 
 ## Architecture Rules
 
@@ -41,6 +42,13 @@ Use this skill for Unreal Engine C++ work in this repository. Favor UE-native ex
 - Keep comments short and useful. Explain why the code exists or what must stay true.
 - Add comments around tricky UE behavior such as initialization order, delegate binding, ownership assumptions, or replication caveats.
 - Do not add comments for obvious one-line assignments or simple getter/setter behavior.
+
+## Debug Logging Rules
+
+- For server-authoritative flow, replication-sensitive state, initialization ordering, external service integration, or dedicated-server lifecycle changes, add focused debug logs at key transitions and failure branches.
+- Logs should include enough context to diagnose production/package bugs: object name, authority/net mode when useful, player id/name, room id, protocol/response code, counts, and the reason a branch was skipped.
+- Prefer one log at the start/end of a multi-step operation plus warnings for invalid state. Avoid per-frame logs and noisy success logs in tight loops unless the operation is rare or explicitly being debugged.
+- When investigating an active bug, temporary verbose logs are acceptable, but keep them searchable with stable text and remove or downgrade them once the behavior is confirmed.
 
 ## DMToolBox Conventions
 

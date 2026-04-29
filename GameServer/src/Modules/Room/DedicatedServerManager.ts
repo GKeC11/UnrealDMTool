@@ -42,7 +42,7 @@ export class DedicatedServerManager {
             launchBatPath,
         };
 
-        this.launchPackagedServer(launchBatPath);
+        this.launchPackagedServer(launchBatPath, roomId);
         this.sessions.set(roomId, session);
         this.logger.info(`Dedicated server launched. roomId=${roomId}, address=${session.address}, bat=${launchBatPath}`);
         return session;
@@ -73,13 +73,18 @@ export class DedicatedServerManager {
         return Number.isInteger(packagedPort) && packagedPort > 0 ? packagedPort : 7777;
     }
 
-    private launchPackagedServer(launchBatPath: string): void {
+    private launchPackagedServer(launchBatPath: string, roomId: string): void {
         const launcher = childProcess.spawn(
             "cmd.exe",
             ["/c", "call", launchBatPath],
             {
                 cwd: path.dirname(launchBatPath),
                 detached: true,
+                env: {
+                    ...process.env,
+                    NO_ROOM_ID: roomId,
+                    NO_GAME_SERVER_ROOM_ID: roomId,
+                },
                 stdio: "ignore",
                 windowsHide: false,
             });

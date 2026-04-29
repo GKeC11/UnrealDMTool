@@ -7,6 +7,10 @@ import { DedicatedServerManager, DedicatedServerSession } from "./DedicatedServe
 
 type SendToClient = (ctx: ConnectionContext, type: number, payload?: Record<string, unknown>) => void;
 type GetConnections = () => ConnectionContext[];
+type AccountRoomState = {
+    setCurrentRoomId(accountId: string, roomId: string): void;
+    clearCurrentRoomId(accountId: string, roomId?: string): void;
+};
 
 type RoomStatus = "waiting" | "playing";
 
@@ -57,6 +61,7 @@ export class RoomModule {
         router: MessageRouter,
         sendToClient: SendToClient,
         getConnections: GetConnections,
+        private readonly accountRoomState: AccountRoomState,
         dedicatedServerManager = new DedicatedServerManager()
     ) {
         this.sendToClient = sendToClient;
@@ -108,6 +113,7 @@ export class RoomModule {
 
         const existingRoom = this.findRoomByMember(hostAccountId);
         if (existingRoom) {
+            this.accountRoomState.setCurrentRoomId(hostAccountId, existingRoom.RoomId);
             this.sendRoomResponse(ctx, ProtocolRoom.ROOM_CREATED, existingRoom);
             return;
         }
@@ -117,6 +123,7 @@ export class RoomModule {
         if (joinableRoom) {
             joinableRoom.Members.push(this.createMember(hostAccountId, false));
             joinableRoom.UpdatedAt = new Date().toISOString();
+            this.accountRoomState.setCurrentRoomId(hostAccountId, joinableRoom.RoomId);
             this.logger.info(`Room entered by name. roomId=${joinableRoom.RoomId}, roomName=${roomName}, accountId=${hostAccountId}, members=${joinableRoom.Members.length}`);
             this.sendRoomResponse(ctx, ProtocolRoom.ROOM_CREATED, joinableRoom);
             this.broadcastRoomUpdate(joinableRoom, ctx);
@@ -125,6 +132,7 @@ export class RoomModule {
 
         const room = this.createRoom(hostAccountId, request);
         this.rooms.set(room.RoomId, room);
+        this.accountRoomState.setCurrentRoomId(hostAccountId, room.RoomId);
         this.logger.info(`Room created. roomId=${room.RoomId}, host=${hostAccountId}, maxPlayers=${room.MaxPlayers}`);
         this.sendRoomResponse(ctx, ProtocolRoom.ROOM_CREATED, room);
     }
@@ -151,6 +159,7 @@ export class RoomModule {
             room.UpdatedAt = new Date().toISOString();
         }
 
+        this.accountRoomState.setCurrentRoomId(accountId, room.RoomId);
         this.logger.info(`Room joined. roomId=${room.RoomId}, accountId=${accountId}, members=${room.Members.length}`);
         this.broadcastRoomUpdate(room);
     }
@@ -222,6 +231,8 @@ export class RoomModule {
         if (room.Members.length === beforeCount) {
             return;
         }
+
+        this.accountRoomState.clearCurrentRoomId(accountId, room.RoomId);
 
         if (room.Members.length === 0) {
             this.rooms.delete(room.RoomId);

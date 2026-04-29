@@ -37,6 +37,36 @@ struct FDMGameServerTokenRefreshPayload
 };
 
 USTRUCT(BlueprintType)
+struct FDMGameServerCurrentRoomData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FString RoomId;
+};
+
+USTRUCT(BlueprintType)
+struct FDMGameServerCurrentRoomPayload
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bSuccess = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bOk = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 ErrorCode = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FString Message;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FDMGameServerCurrentRoomData Data;
+};
+
+USTRUCT(BlueprintType)
 struct FDMGameServerRoomMember
 {
 	GENERATED_BODY()

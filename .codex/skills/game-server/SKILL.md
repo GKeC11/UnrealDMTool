@@ -40,8 +40,15 @@ Use this skill for TypeScript GameServer work in `Plugins/DMToolBox/GameServer`.
 - Prefer narrow typed payload interfaces for new request/response shapes instead of `any`.
 - Validate malformed client input early and return protocol errors consistently.
 - Avoid cross-module direct coupling for business flows; register handlers through `MessageRouter` or a focused module boundary.
+- Treat GameServer as the authority for gameplay service state such as account room membership, lobby presence, room status, and dedicated-server address assignment. Do not store authoritative service state in UE client globals, Puerts module singletons, or client-side subsystems.
+- Put account-scoped service state, such as `currentRoomId`, in `AccountModule` or an account-focused service boundary. Room flows should update that state through a focused module interface when creating, joining, reusing, leaving, or deleting rooms.
+- Expose service state to UE C++ and Puerts TypeScript through explicit request/response protocols instead of direct client memory sharing. Add protocol ids to the relevant `src/Protocol/*Define.ts` file and payload types to `src/Protocol/GameServerTypes.ts`.
+- When a protocol is intended for UE C++ usage, also add the corresponding `USTRUCT` payload shape under `Source/DMToolBox/Framework/Network/DMGameServerTypes.h` so native code and Blueprints have the same contract.
+- Keep protocol names stable and domain-scoped, for example `Account.CurrentRoomRequest` / `Account.CurrentRoomResponse`, and keep the numeric id in the same domain range as the owning module.
+- For recovery compatibility, a client may fall back to querying broader state such as room lists, but the primary path should use the authoritative domain protocol.
 
 ## Verification
 
 - Run the GameServer TypeScript build or the closest project build script after code changes when available.
+- If protocol payloads are consumed by project Puerts TypeScript, run the project `tspc` build as well as the GameServer build/check.
 - If build tooling is unavailable, at least inspect changed imports, exported types, protocol enum usage, and logger usage before finishing.

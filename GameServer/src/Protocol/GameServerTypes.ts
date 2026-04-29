@@ -31,6 +31,10 @@ export type GameServerTokenRefreshPayload = {
     token?: string;
 };
 
+export type GameServerCurrentRoomPayload = GameServerResponsePayload<{
+    roomId?: string;
+}>;
+
 export type GameServerRoomStatus = "waiting" | "playing";
 
 export type GameServerRoomMember = {

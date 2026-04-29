@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Commit Comment"
+  short_description: "Draft Chinese Git commit comments from diffs."
+  default_prompt: "Use $generate-commit-comment to draft commit comments for the current Git changes."

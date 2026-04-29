@@ -3,4 +3,6 @@ export enum ProtocolAccount {
     AUTH_REQUEST = 101,
     AUTH_RESPONSE = 102,
     TOKEN_REFRESH = 103,
+    CURRENT_ROOM_REQUEST = 104,
+    CURRENT_ROOM_RESPONSE = 105,
 }

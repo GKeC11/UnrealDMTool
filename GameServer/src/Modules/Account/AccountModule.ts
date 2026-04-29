@@ -19,6 +19,7 @@ export class AccountModule {
     private readonly logger = new Logger("AccountModule");
     private readonly authService: AuthService;
     private readonly sendToClient: SendToClient;
+    private readonly currentRoomIds = new Map<string, string>();
 
     public constructor(router: MessageRouter, sendToClient: SendToClient, authService = new AuthService()) {
         this.authService = authService;
@@ -26,6 +27,39 @@ export class AccountModule {
 
         router.register(ProtocolAccount.AUTH_REQUEST, (ctx, payload) => this.handleAuthRequest(ctx, payload));
         router.register(ProtocolAccount.TOKEN_REFRESH, (ctx, payload) => this.handleTokenRefresh(ctx, payload));
+        router.register(ProtocolAccount.CURRENT_ROOM_REQUEST, (ctx) => this.handleCurrentRoomRequest(ctx));
+    }
+
+    public setCurrentRoomId(accountId: string, roomId: string): void {
+        const resolvedAccountId = normalizeString(accountId);
+        const resolvedRoomId = normalizeString(roomId);
+        if (!resolvedAccountId || !resolvedRoomId) {
+            return;
+        }
+
+        this.currentRoomIds.set(resolvedAccountId, resolvedRoomId);
+        this.logger.info(`Account current room set. accountId=${resolvedAccountId}, roomId=${resolvedRoomId}`);
+    }
+
+    public clearCurrentRoomId(accountId: string, roomId?: string): void {
+        const resolvedAccountId = normalizeString(accountId);
+        const resolvedRoomId = normalizeString(roomId);
+        if (!resolvedAccountId) {
+            return;
+        }
+
+        const currentRoomId = this.currentRoomIds.get(resolvedAccountId) || "";
+        if (!currentRoomId || (resolvedRoomId && currentRoomId !== resolvedRoomId)) {
+            return;
+        }
+
+        this.currentRoomIds.delete(resolvedAccountId);
+        this.logger.info(`Account current room cleared. accountId=${resolvedAccountId}, roomId=${currentRoomId}`);
+    }
+
+    public getCurrentRoomId(accountId: string): string {
+        const resolvedAccountId = normalizeString(accountId);
+        return resolvedAccountId ? this.currentRoomIds.get(resolvedAccountId) || "" : "";
     }
 
     private handleAuthRequest(ctx: ConnectionContext, payload: unknown): void {
@@ -66,6 +100,25 @@ export class AccountModule {
         }
     }
 
+    private handleCurrentRoomRequest(ctx: ConnectionContext): void {
+        this.assertAuthenticated(ctx);
+        const roomId = this.getCurrentRoomId(ctx.userId || "");
+        this.sendToClient(ctx, ProtocolAccount.CURRENT_ROOM_RESPONSE, {
+            success: true,
+            ok: true,
+            data: {
+                roomId,
+            },
+        });
+        this.logger.debug(`Account current room sent. connection=${ctx.id}, accountId=${ctx.userId}, roomId=${roomId}`);
+    }
+
+    private assertAuthenticated(ctx: ConnectionContext): void {
+        if (!ctx.isAuthenticated || !ctx.userId) {
+            throw new Error("account is not authenticated");
+        }
+    }
+
     private applyLoginContext(ctx: ConnectionContext, result: LoginResult): void {
         ctx.userId = result.account.accountId;
         ctx.isAuthenticated = true;
@@ -85,4 +138,8 @@ export class AccountModule {
 
 function asRecord<T extends Record<string, unknown>>(value: unknown): T {
     return value && typeof value === "object" ? value as T : {} as T;
+}
+
+function normalizeString(value: unknown): string {
+    return typeof value === "string" ? value.trim() : "";
 }
